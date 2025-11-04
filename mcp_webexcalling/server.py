@@ -5,10 +5,11 @@ import sys
 from typing import Any, Sequence, Optional
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
-from mcp.types import Tool, TextContent
+from mcp.types import Tool, TextContent, Prompt, PromptArgument, Resource
 
 from .webex_client import WebexClient
 from .config import get_settings
+from .oauth import WebexOAuth
 
 
 # Initialize the MCP server
@@ -21,11 +22,122 @@ def get_client() -> WebexClient:
     global webex_client
     if webex_client is None:
         settings = get_settings()
+        
+        # Check if we have an access token (direct or from OAuth)
+        access_token = settings.webex_access_token
+        
+        if not access_token and settings.has_oauth_credentials():
+            # OAuth flow might need to be initiated
+            # For now, we'll require the token to be set after OAuth
+            raise ValueError(
+                "No access token available. Please complete OAuth authentication first."
+            )
+        
+        if not access_token:
+            raise ValueError(
+                "No access token configured. Set WEBEX_ACCESS_TOKEN or complete OAuth flow."
+            )
+        
         webex_client = WebexClient(
-            access_token=settings.webex_access_token,
+            access_token=access_token,
             base_url=settings.webex_base_url,
         )
     return webex_client
+
+
+@server.list_prompts()
+async def list_prompts() -> list[Prompt]:
+    """List available prompts for OAuth initiation"""
+    settings = get_settings()
+    
+    prompts = []
+    
+    if settings.has_oauth_credentials():
+        prompts.append(
+            Prompt(
+                name="initiate_webex_oauth",
+                description="Initiate OAuth authentication flow for Webex Calling",
+                arguments=[
+                    PromptArgument(
+                        name="redirect_uri",
+                        description="OAuth redirect URI (default: http://localhost:8080/callback)",
+                        required=False,
+                    ),
+                ],
+            )
+        )
+    
+    return prompts
+
+
+@server.get_prompt()
+async def get_prompt(name: str, arguments: dict[str, Any]) -> Sequence[TextContent]:
+    """Handle prompt requests"""
+    if name == "initiate_webex_oauth":
+        settings = get_settings()
+        if not settings.has_oauth_credentials():
+            return [TextContent(
+                type="text",
+                text="OAuth credentials not configured. Please set WEBEX_CLIENT_ID and WEBEX_CLIENT_SECRET in your .env file."
+            )]
+        
+        redirect_uri = arguments.get("redirect_uri", settings.webex_redirect_uri)
+        oauth = WebexOAuth(
+            client_id=settings.webex_client_id,
+            client_secret=settings.webex_client_secret,
+            redirect_uri=redirect_uri,
+            scope=settings.webex_oauth_scope,
+        )
+        auth_url = oauth.get_authorization_url()
+        
+        return [TextContent(
+            type="text",
+            text=f"# Webex OAuth Authentication\n\n"
+                 f"To authenticate with Webex Calling, please visit this URL:\n\n"
+                 f"{auth_url}\n\n"
+                 f"After authorizing, you'll receive an authorization code. "
+                 f"Use the `exchange_oauth_code` tool with that code to complete authentication."
+        )]
+    
+    return [TextContent(type="text", text=f"Unknown prompt: {name}")]
+
+
+@server.list_resources()
+async def list_resources() -> list[Resource]:
+    """List available resources"""
+    settings = get_settings()
+    
+    resources = []
+    
+    # OAuth status resource
+    if settings.has_oauth_credentials():
+        auth_status = "configured" if settings.has_access_token() else "not_authenticated"
+        resources.append(
+            Resource(
+                uri="webex://oauth/status",
+                name="OAuth Authentication Status",
+                description="Current OAuth authentication status",
+                mimeType="application/json",
+            )
+        )
+    
+    return resources
+
+
+@server.read_resource()
+async def read_resource(uri: str) -> bytes:
+    """Read a resource"""
+    if uri == "webex://oauth/status":
+        settings = get_settings()
+        status = {
+            "oauth_configured": settings.has_oauth_credentials(),
+            "authenticated": settings.has_access_token(),
+            "has_refresh_token": bool(settings.webex_refresh_token),
+        }
+        import json
+        return json.dumps(status, indent=2).encode("utf-8")
+    
+    raise ValueError(f"Unknown resource: {uri}")
 
 
 @server.list_tools()
@@ -1347,16 +1459,176 @@ async def list_tools() -> list[Tool]:
                 "required": ["person_id"],
             },
         ),
+        # OAuth Management Tools
+        Tool(
+            name="get_oauth_authorization_url",
+            description="Get OAuth authorization URL to initiate authentication",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "redirect_uri": {
+                        "type": "string",
+                        "description": "Optional redirect URI (default: http://localhost:8080/callback)",
+                    },
+                },
+                "required": [],
+            },
+        ),
+        Tool(
+            name="exchange_oauth_code",
+            description="Exchange OAuth authorization code for access token",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string",
+                        "description": "OAuth authorization code",
+                    },
+                    "redirect_uri": {
+                        "type": "string",
+                        "description": "Redirect URI used in authorization",
+                    },
+                },
+                "required": ["code"],
+            },
+        ),
+        Tool(
+            name="refresh_oauth_token",
+            description="Refresh OAuth access token using refresh token",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "refresh_token": {
+                        "type": "string",
+                        "description": "Refresh token",
+                    },
+                },
+                "required": ["refresh_token"],
+            },
+        ),
+        Tool(
+            name="get_oauth_status",
+            description="Get current OAuth authentication status",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+                "required": [],
+            },
+        ),
     ]
 
 
 @server.call_tool()
 async def call_tool(name: str, arguments: dict[str, Any]) -> Sequence[TextContent]:
     """Handle tool calls"""
-    client = get_client()
-
+    # OAuth tools don't need a client
+    if name in ["get_oauth_authorization_url", "exchange_oauth_code", "refresh_oauth_token", "get_oauth_status"]:
+        pass  # Handle OAuth tools separately
+    else:
+        try:
+            client = get_client()
+        except ValueError as e:
+            # If client initialization fails (no token), return helpful error
+            return [TextContent(
+                type="text",
+                text=f"Authentication required: {str(e)}\n\n"
+                     f"Please configure WEBEX_ACCESS_TOKEN in your .env file, or use OAuth authentication:\n"
+                     f"1. Use the 'get_oauth_authorization_url' tool to get the authorization URL\n"
+                     f"2. Visit the URL and authorize\n"
+                     f"3. Use the 'exchange_oauth_code' tool with the authorization code"
+            )]
+    
     try:
-        if name == "get_organization_info":
+        # OAuth Management Tools (handle first, before client initialization)
+        if name == "get_oauth_authorization_url":
+            settings = get_settings()
+            if not settings.has_oauth_credentials():
+                return [TextContent(
+                    type="text",
+                    text="OAuth credentials not configured. Set WEBEX_CLIENT_ID and WEBEX_CLIENT_SECRET."
+                )]
+            
+            redirect_uri = arguments.get("redirect_uri", settings.webex_redirect_uri)
+            oauth = WebexOAuth(
+                client_id=settings.webex_client_id,
+                client_secret=settings.webex_client_secret,
+                redirect_uri=redirect_uri,
+                scope=settings.webex_oauth_scope,
+            )
+            auth_url = oauth.get_authorization_url()
+            return [TextContent(
+                type="text",
+                text=f"Visit this URL to authorize:\n{auth_url}\n\nAfter authorization, use the exchange_oauth_code tool with the authorization code."
+            )]
+
+        elif name == "exchange_oauth_code":
+            settings = get_settings()
+            if not settings.has_oauth_credentials():
+                return [TextContent(
+                    type="text",
+                    text="OAuth credentials not configured. Set WEBEX_CLIENT_ID and WEBEX_CLIENT_SECRET."
+                )]
+            
+            code = arguments["code"]
+            redirect_uri = arguments.get("redirect_uri", settings.webex_redirect_uri)
+            oauth = WebexOAuth(
+                client_id=settings.webex_client_id,
+                client_secret=settings.webex_client_secret,
+                redirect_uri=redirect_uri,
+                scope=settings.webex_oauth_scope,
+            )
+            token_response = await oauth.exchange_code_for_token(code)
+            
+            return [TextContent(
+                type="text",
+                text=f"OAuth authentication successful!\n\n"
+                     f"Access Token: {token_response.get('access_token', '')[:20]}...\n"
+                     f"Refresh Token: {token_response.get('refresh_token', '')[:20] if token_response.get('refresh_token') else 'None'}...\n"
+                     f"Expires in: {token_response.get('expires_in', 'N/A')} seconds\n\n"
+                     f"Set these in your .env file:\n"
+                     f"WEBEX_ACCESS_TOKEN={token_response.get('access_token')}\n"
+                     f"WEBEX_REFRESH_TOKEN={token_response.get('refresh_token', '')}"
+            )]
+
+        elif name == "refresh_oauth_token":
+            settings = get_settings()
+            if not settings.has_oauth_credentials():
+                return [TextContent(
+                    type="text",
+                    text="OAuth credentials not configured. Set WEBEX_CLIENT_ID and WEBEX_CLIENT_SECRET."
+                )]
+            
+            refresh_token = arguments["refresh_token"]
+            oauth = WebexOAuth(
+                client_id=settings.webex_client_id,
+                client_secret=settings.webex_client_secret,
+                redirect_uri=settings.webex_redirect_uri,
+                scope=settings.webex_oauth_scope,
+            )
+            token_response = await oauth.refresh_access_token(refresh_token)
+            
+            return [TextContent(
+                type="text",
+                text=f"Token refreshed successfully!\n\n"
+                     f"Access Token: {token_response.get('access_token', '')[:20]}...\n"
+                     f"New Refresh Token: {token_response.get('refresh_token', '')[:20] if token_response.get('refresh_token') else 'None'}...\n"
+                     f"Expires in: {token_response.get('expires_in', 'N/A')} seconds\n\n"
+                     f"Update your .env file with the new access token."
+            )]
+
+        elif name == "get_oauth_status":
+            settings = get_settings()
+            status = {
+                "oauth_configured": settings.has_oauth_credentials(),
+                "authenticated": settings.has_access_token(),
+                "has_refresh_token": bool(settings.webex_refresh_token),
+                "client_id_configured": bool(settings.webex_client_id),
+                "client_secret_configured": bool(settings.webex_client_secret),
+            }
+            return [TextContent(type="text", text=format_json(status))]
+
+        # Regular tools that need a client
+        elif name == "get_organization_info":
             result = await client.get_organization_info()
             return [TextContent(type="text", text=format_json(result))]
 
