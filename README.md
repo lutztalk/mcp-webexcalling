@@ -1,6 +1,38 @@
 # MCP Webex Calling Server
 
-An MCP (Model Context Protocol) server for interacting with Webex Calling APIs. This server enables you to query Webex Calling data and perform functions within your Webex organization.
+An MCP (Model Context Protocol) server that provides comprehensive access to Webex Calling APIs through natural language interactions. This server bridges the gap between AI assistants like Claude and your Webex Calling infrastructure, enabling you to manage your entire calling environment through conversational queries.
+
+## What is MCP?
+
+MCP (Model Context Protocol) is a standardized protocol that allows AI assistants to securely connect to external services and data sources. Instead of manually navigating APIs or writing scripts, MCP servers expose capabilities as tools that AI assistants can understand and use on your behalf.
+
+## Why Use MCP for Webex Calling?
+
+Webex Calling is a powerful cloud-based calling platform with extensive APIs for managing users, devices, locations, call queues, and more. However, interacting with these APIs typically requires:
+
+- Writing custom scripts or applications
+- Understanding complex API documentation
+- Managing authentication and tokens
+- Handling pagination, error handling, and data formatting
+
+This MCP server eliminates these barriers by:
+
+- **Natural Language Interface**: Ask questions in plain English instead of crafting API calls
+- **Comprehensive Coverage**: Access to 85+ tools covering all major Webex Calling operations
+- **Intelligent Automation**: Let AI assistants handle complex multi-step operations automatically
+- **Real-time Insights**: Get instant answers about your calling infrastructure, call analytics, and user configurations
+- **Unified Management**: Manage users, devices, locations, queues, hunt groups, and more from a single interface
+- **Safe Operations**: Built-in error handling and validation for all API interactions
+
+## Use Cases
+
+- **Quick Queries**: "What call queues do we have configured?" or "Show me all devices for user john@example.com"
+- **Administrative Tasks**: "Assign phone number X to user Y" or "Create a new call queue called Support"
+- **Analytics & Reporting**: "Get call analytics for last month" or "Show me queue performance metrics"
+- **Troubleshooting**: "What are the calling settings for user X?" or "List all devices at location Y"
+- **Bulk Operations**: "Update extensions for all users in location X" or "List all licenses in the organization"
+
+Whether you're a system administrator managing hundreds of users, a support technician troubleshooting issues, or a manager needing quick insights, this MCP server makes Webex Calling management accessible through natural conversation.
 
 ## Features
 
