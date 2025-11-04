@@ -507,3 +507,707 @@ class WebexClient:
         location = await self.get_location_details(location_id)
         return location.get("features", {})
 
+    # ========== Enhanced Device Management ==========
+
+    async def associate_device_to_user(
+        self, device_id: str, person_id: str
+    ) -> Dict[str, Any]:
+        """Associate a device to a user"""
+        return await self._request(
+            "PUT",
+            f"/devices/{device_id}",
+            json_data={"personId": person_id}
+        )
+
+    async def unassociate_device(self, device_id: str) -> Dict[str, Any]:
+        """Unassociate a device from a user"""
+        return await self._request(
+            "PUT",
+            f"/devices/{device_id}",
+            json_data={"personId": None}
+        )
+
+    async def provision_device(
+        self, device_id: str, person_id: str, location_id: str
+    ) -> Dict[str, Any]:
+        """Provision a device for a user"""
+        return await self._request(
+            "PUT",
+            f"/devices/{device_id}",
+            json_data={
+                "personId": person_id,
+                "locationId": location_id,
+                "provisioning": {"method": "automatic"}
+            }
+        )
+
+    async def activate_device(self, device_id: str) -> Dict[str, Any]:
+        """Activate a device"""
+        return await self._request(
+            "POST",
+            f"/devices/{device_id}/activate"
+        )
+
+    async def deactivate_device(self, device_id: str) -> Dict[str, Any]:
+        """Deactivate a device"""
+        return await self._request(
+            "POST",
+            f"/devices/{device_id}/deactivate"
+        )
+
+    async def get_device_associations(self, device_id: str) -> Dict[str, Any]:
+        """Get device associations and status"""
+        device = await self.get_device_details(device_id)
+        return {
+            "deviceId": device_id,
+            "personId": device.get("personId"),
+            "locationId": device.get("locationId"),
+            "status": device.get("status"),
+            "provisioning": device.get("provisioning"),
+            "features": device.get("features", {}),
+        }
+
+    async def list_user_devices(self, person_id: str) -> List[Dict[str, Any]]:
+        """List all devices associated with a user"""
+        return await self.list_devices(person_id=person_id)
+
+    # ========== Location CRUD Operations ==========
+
+    async def create_location(
+        self,
+        name: str,
+        address: Dict[str, Any],
+        org_id: Optional[str] = None,
+        emergency_location: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        """Create a new location"""
+        data = {
+            "name": name,
+            "address": address,
+        }
+        if org_id:
+            data["orgId"] = org_id
+        if emergency_location is not None:
+            data["emergencyLocation"] = emergency_location
+
+        return await self._request("POST", "/locations", json_data=data)
+
+    async def update_location(
+        self,
+        location_id: str,
+        name: Optional[str] = None,
+        address: Optional[Dict[str, Any]] = None,
+        emergency_location: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        """Update a location"""
+        current = await self.get_location_details(location_id)
+        update_data = {**current}
+        
+        if name:
+            update_data["name"] = name
+        if address:
+            update_data["address"] = address
+        if emergency_location is not None:
+            update_data["emergencyLocation"] = emergency_location
+
+        return await self._request("PUT", f"/locations/{location_id}", json_data=update_data)
+
+    async def delete_location(self, location_id: str) -> Dict[str, Any]:
+        """Delete a location"""
+        return await self._request("DELETE", f"/locations/{location_id}")
+
+    # ========== User CRUD Operations ==========
+
+    async def create_user(
+        self,
+        emails: List[str],
+        display_name: str,
+        first_name: Optional[str] = None,
+        last_name: Optional[str] = None,
+        org_id: Optional[str] = None,
+        location_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create a new user"""
+        data = {
+            "emails": emails,
+            "displayName": display_name,
+        }
+        if first_name:
+            data["firstName"] = first_name
+        if last_name:
+            data["lastName"] = last_name
+        if org_id:
+            data["orgId"] = org_id
+        if location_id:
+            data["locationId"] = location_id
+
+        return await self._request("POST", "/people", json_data=data)
+
+    async def update_user(
+        self,
+        person_id: str,
+        display_name: Optional[str] = None,
+        first_name: Optional[str] = None,
+        last_name: Optional[str] = None,
+        emails: Optional[List[str]] = None,
+        location_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Update a user"""
+        current = await self.get_user_details(person_id)
+        update_data = {**current}
+        
+        if display_name:
+            update_data["displayName"] = display_name
+        if first_name:
+            update_data["firstName"] = first_name
+        if last_name:
+            update_data["lastName"] = last_name
+        if emails:
+            update_data["emails"] = emails
+        if location_id:
+            update_data["locationId"] = location_id
+
+        return await self._request("PUT", f"/people/{person_id}", json_data=update_data)
+
+    async def delete_user(self, person_id: str) -> Dict[str, Any]:
+        """Delete a user"""
+        return await self._request("DELETE", f"/people/{person_id}")
+
+    # ========== Call Queue Management ==========
+
+    async def create_call_queue(
+        self,
+        name: str,
+        location_id: str,
+        phone_number: Optional[str] = None,
+        call_policies: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Create a new call queue"""
+        data = {
+            "name": name,
+            "locationId": location_id,
+        }
+        if phone_number:
+            data["phoneNumber"] = phone_number
+        if call_policies:
+            data["callPolicies"] = call_policies
+
+        return await self._request("POST", "/telephony/config/queues", json_data=data)
+
+    async def update_call_queue(
+        self,
+        queue_id: str,
+        name: Optional[str] = None,
+        phone_number: Optional[str] = None,
+        call_policies: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Update a call queue"""
+        current = await self.get_call_queue_details(queue_id)
+        update_data = {**current}
+        
+        if name:
+            update_data["name"] = name
+        if phone_number:
+            update_data["phoneNumber"] = phone_number
+        if call_policies:
+            update_data["callPolicies"] = call_policies
+
+        return await self._request("PUT", f"/telephony/config/queues/{queue_id}", json_data=update_data)
+
+    async def delete_call_queue(self, queue_id: str) -> Dict[str, Any]:
+        """Delete a call queue"""
+        return await self._request("DELETE", f"/telephony/config/queues/{queue_id}")
+
+    async def add_agent_to_queue(
+        self, queue_id: str, person_id: str, skill_level: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """Add an agent to a call queue"""
+        queue = await self.get_call_queue_details(queue_id)
+        agents = queue.get("agents", [])
+        
+        agent_data = {"personId": person_id}
+        if skill_level is not None:
+            agent_data["skillLevel"] = skill_level
+        
+        agents.append(agent_data)
+        
+        return await self._request(
+            "PUT",
+            f"/telephony/config/queues/{queue_id}",
+            json_data={"agents": agents}
+        )
+
+    async def remove_agent_from_queue(
+        self, queue_id: str, person_id: str
+    ) -> Dict[str, Any]:
+        """Remove an agent from a call queue"""
+        queue = await self.get_call_queue_details(queue_id)
+        agents = [
+            agent for agent in queue.get("agents", [])
+            if agent.get("personId") != person_id
+        ]
+        
+        return await self._request(
+            "PUT",
+            f"/telephony/config/queues/{queue_id}",
+            json_data={"agents": agents}
+        )
+
+    async def list_queue_agents(self, queue_id: str) -> List[Dict[str, Any]]:
+        """List all agents in a call queue"""
+        queue = await self.get_call_queue_details(queue_id)
+        return queue.get("agents", [])
+
+    # ========== Auto Attendant CRUD Operations ==========
+
+    async def create_auto_attendant(
+        self,
+        name: str,
+        location_id: str,
+        phone_number: Optional[str] = None,
+        business_schedule: Optional[Dict[str, Any]] = None,
+        menu: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Create a new auto attendant"""
+        data = {
+            "name": name,
+            "locationId": location_id,
+        }
+        if phone_number:
+            data["phoneNumber"] = phone_number
+        if business_schedule:
+            data["businessSchedule"] = business_schedule
+        if menu:
+            data["menu"] = menu
+
+        return await self._request("POST", "/telephony/config/autoAttendants", json_data=data)
+
+    async def update_auto_attendant(
+        self,
+        auto_attendant_id: str,
+        name: Optional[str] = None,
+        phone_number: Optional[str] = None,
+        business_schedule: Optional[Dict[str, Any]] = None,
+        menu: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Update an auto attendant"""
+        current = await self.get_auto_attendant_details(auto_attendant_id)
+        update_data = {**current}
+        
+        if name:
+            update_data["name"] = name
+        if phone_number:
+            update_data["phoneNumber"] = phone_number
+        if business_schedule:
+            update_data["businessSchedule"] = business_schedule
+        if menu:
+            update_data["menu"] = menu
+
+        return await self._request(
+            "PUT",
+            f"/telephony/config/autoAttendants/{auto_attendant_id}",
+            json_data=update_data
+        )
+
+    async def delete_auto_attendant(self, auto_attendant_id: str) -> Dict[str, Any]:
+        """Delete an auto attendant"""
+        return await self._request(
+            "DELETE", f"/telephony/config/autoAttendants/{auto_attendant_id}"
+        )
+
+    # ========== Hunt Group CRUD Operations ==========
+
+    async def create_hunt_group(
+        self,
+        name: str,
+        location_id: str,
+        phone_number: Optional[str] = None,
+        distribution: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create a new hunt group"""
+        data = {
+            "name": name,
+            "locationId": location_id,
+        }
+        if phone_number:
+            data["phoneNumber"] = phone_number
+        if distribution:
+            data["distribution"] = distribution
+
+        return await self._request("POST", "/telephony/config/huntGroups", json_data=data)
+
+    async def update_hunt_group(
+        self,
+        hunt_group_id: str,
+        name: Optional[str] = None,
+        phone_number: Optional[str] = None,
+        distribution: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Update a hunt group"""
+        current = await self.get_hunt_group_details(hunt_group_id)
+        update_data = {**current}
+        
+        if name:
+            update_data["name"] = name
+        if phone_number:
+            update_data["phoneNumber"] = phone_number
+        if distribution:
+            update_data["distribution"] = distribution
+
+        return await self._request(
+            "PUT", f"/telephony/config/huntGroups/{hunt_group_id}", json_data=update_data
+        )
+
+    async def delete_hunt_group(self, hunt_group_id: str) -> Dict[str, Any]:
+        """Delete a hunt group"""
+        return await self._request("DELETE", f"/telephony/config/huntGroups/{hunt_group_id}")
+
+    async def add_member_to_hunt_group(
+        self, hunt_group_id: str, person_id: str
+    ) -> Dict[str, Any]:
+        """Add a member to a hunt group"""
+        group = await self.get_hunt_group_details(hunt_group_id)
+        members = group.get("members", [])
+        
+        if person_id not in members:
+            members.append(person_id)
+        
+        return await self._request(
+            "PUT",
+            f"/telephony/config/huntGroups/{hunt_group_id}",
+            json_data={"members": members}
+        )
+
+    async def remove_member_from_hunt_group(
+        self, hunt_group_id: str, person_id: str
+    ) -> Dict[str, Any]:
+        """Remove a member from a hunt group"""
+        group = await self.get_hunt_group_details(hunt_group_id)
+        members = [
+            member for member in group.get("members", [])
+            if member != person_id
+        ]
+        
+        return await self._request(
+            "PUT",
+            f"/telephony/config/huntGroups/{hunt_group_id}",
+            json_data={"members": members}
+        )
+
+    # ========== Enhanced Phone Number Management ==========
+
+    async def unassign_phone_number(self, number_id: str) -> Dict[str, Any]:
+        """Unassign a phone number from a user"""
+        number = await self.get_phone_number_details(number_id)
+        update_data = {**number}
+        update_data["owner"] = None
+        
+        return await self._request(
+            "PUT", f"/telephony/config/numbers/{number_id}", json_data=update_data
+        )
+
+    async def assign_phone_number_to_location(
+        self, number_id: str, location_id: str
+    ) -> Dict[str, Any]:
+        """Assign a phone number to a location"""
+        number = await self.get_phone_number_details(number_id)
+        update_data = {**number}
+        update_data["locationId"] = location_id
+        
+        return await self._request(
+            "PUT", f"/telephony/config/numbers/{number_id}", json_data=update_data
+        )
+
+    async def search_available_phone_numbers(
+        self,
+        location_id: str,
+        area_code: Optional[str] = None,
+        state: Optional[str] = None,
+        country: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Search for available phone numbers"""
+        params = {"locationId": location_id}
+        if area_code:
+            params["areaCode"] = area_code
+        if state:
+            params["state"] = state
+        if country:
+            params["country"] = country
+
+        response = await self._request("GET", "/telephony/config/availableNumbers", params=params)
+        return response.get("items", [])
+
+    # ========== Voicemail Management ==========
+
+    async def get_user_voicemail_settings(self, person_id: str) -> Dict[str, Any]:
+        """Get voicemail settings for a user"""
+        settings = await self.get_user_calling_settings(person_id)
+        return settings.get("voicemail", {})
+
+    async def update_user_voicemail_settings(
+        self,
+        person_id: str,
+        enabled: Optional[bool] = None,
+        greeting: Optional[Dict[str, Any]] = None,
+        pin: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Update voicemail settings for a user"""
+        current = await self.get_user_calling_settings(person_id)
+        update_data = {**current}
+        
+        if "voicemail" not in update_data:
+            update_data["voicemail"] = {}
+        
+        if enabled is not None:
+            update_data["voicemail"]["enabled"] = enabled
+        if greeting:
+            update_data["voicemail"]["greeting"] = greeting
+        if pin:
+            update_data["voicemail"]["pin"] = pin
+
+        return await self._request(
+            "PUT", f"/telephony/config/people/{person_id}", json_data=update_data
+        )
+
+    async def list_voicemail_messages(
+        self,
+        person_id: str,
+        max_results: int = 100,
+    ) -> List[Dict[str, Any]]:
+        """List voicemail messages for a user"""
+        params = {"max": max_results}
+        response = await self._request(
+            "GET", f"/telephony/voicemail/messages", params=params
+        )
+        return response.get("items", [])
+
+    async def get_voicemail_message(self, message_id: str) -> Dict[str, Any]:
+        """Get a specific voicemail message"""
+        return await self._request("GET", f"/telephony/voicemail/messages/{message_id}")
+
+    async def delete_voicemail_message(self, message_id: str) -> Dict[str, Any]:
+        """Delete a voicemail message"""
+        return await self._request("DELETE", f"/telephony/voicemail/messages/{message_id}")
+
+    # ========== Call Recording Management ==========
+
+    async def list_call_recordings(
+        self,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+        person_id: Optional[str] = None,
+        max_results: int = 100,
+    ) -> List[Dict[str, Any]]:
+        """List call recordings"""
+        params = {"max": max_results}
+        if start_time:
+            params["startTime"] = start_time
+        if end_time:
+            params["endTime"] = end_time
+        if person_id:
+            params["personId"] = person_id
+
+        response = await self._request("GET", "/telephony/calls/recordings", params=params)
+        return response.get("items", [])
+
+    async def get_call_recording(self, recording_id: str) -> Dict[str, Any]:
+        """Get details about a call recording"""
+        return await self._request("GET", f"/telephony/calls/recordings/{recording_id}")
+
+    async def download_call_recording(self, recording_id: str) -> bytes:
+        """Download a call recording"""
+        url = f"{self.base_url}/telephony/calls/recordings/{recording_id}/download"
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, headers=self.headers, timeout=60.0)
+            response.raise_for_status()
+            return response.content
+
+    # ========== Enhanced Reporting & Analytics ==========
+
+    async def export_call_records(
+        self,
+        start_time: str,
+        end_time: str,
+        format: str = "csv",
+        location_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Export call records in various formats"""
+        data = {
+            "startTime": start_time,
+            "endTime": end_time,
+            "format": format,
+        }
+        if location_id:
+            data["locationId"] = location_id
+
+        return await self._request("POST", "/telephony/calls/export", json_data=data)
+
+    async def get_real_time_call_metrics(
+        self, location_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Get real-time call metrics"""
+        params = {}
+        if location_id:
+            params["locationId"] = location_id
+
+        response = await self._request("GET", "/telephony/calls/metrics", params=params)
+        return response.get("metrics", {})
+
+    async def get_call_statistics(
+        self,
+        start_time: str,
+        end_time: str,
+        location_id: Optional[str] = None,
+        group_by: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Get detailed call statistics with grouping"""
+        params = {
+            "startTime": start_time,
+            "endTime": end_time,
+        }
+        if location_id:
+            params["locationId"] = location_id
+        if group_by:
+            params["groupBy"] = group_by
+
+        response = await self._request("GET", "/telephony/calls/statistics", params=params)
+        return response.get("statistics", {})
+
+    async def get_user_call_statistics(
+        self,
+        person_id: str,
+        start_time: str,
+        end_time: str,
+    ) -> Dict[str, Any]:
+        """Get call statistics for a specific user"""
+        return await self.get_call_statistics(
+            start_time=start_time,
+            end_time=end_time,
+            group_by="user",
+        )
+
+    # ========== Webhook & Event Management ==========
+
+    async def list_webhooks(
+        self, max_results: int = 100
+    ) -> List[Dict[str, Any]]:
+        """List all webhooks"""
+        params = {"max": max_results}
+        response = await self._request("GET", "/webhooks", params=params)
+        return response.get("items", [])
+
+    async def create_webhook(
+        self,
+        name: str,
+        target_url: str,
+        resource: str,
+        event: str,
+        secret: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create a webhook"""
+        data = {
+            "name": name,
+            "targetUrl": target_url,
+            "resource": resource,
+            "event": event,
+        }
+        if secret:
+            data["secret"] = secret
+
+        return await self._request("POST", "/webhooks", json_data=data)
+
+    async def get_webhook_details(self, webhook_id: str) -> Dict[str, Any]:
+        """Get webhook details"""
+        return await self._request("GET", f"/webhooks/{webhook_id}")
+
+    async def update_webhook(
+        self,
+        webhook_id: str,
+        name: Optional[str] = None,
+        target_url: Optional[str] = None,
+        secret: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Update a webhook"""
+        current = await self.get_webhook_details(webhook_id)
+        update_data = {**current}
+        
+        if name:
+            update_data["name"] = name
+        if target_url:
+            update_data["targetUrl"] = target_url
+        if secret:
+            update_data["secret"] = secret
+
+        return await self._request("PUT", f"/webhooks/{webhook_id}", json_data=update_data)
+
+    async def delete_webhook(self, webhook_id: str) -> Dict[str, Any]:
+        """Delete a webhook"""
+        return await self._request("DELETE", f"/webhooks/{webhook_id}")
+
+    # ========== Advanced Features ==========
+
+    async def get_call_forwarding_settings(self, person_id: str) -> Dict[str, Any]:
+        """Get call forwarding settings for a user"""
+        settings = await self.get_user_calling_settings(person_id)
+        return settings.get("callForwarding", {})
+
+    async def update_call_forwarding_settings(
+        self,
+        person_id: str,
+        always: Optional[bool] = None,
+        busy: Optional[bool] = None,
+        no_answer: Optional[bool] = None,
+        destination: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Update call forwarding settings"""
+        current = await self.get_user_calling_settings(person_id)
+        update_data = {**current}
+        
+        if "callForwarding" not in update_data:
+            update_data["callForwarding"] = {}
+        
+        if always is not None:
+            update_data["callForwarding"]["always"] = always
+        if busy is not None:
+            update_data["callForwarding"]["busy"] = busy
+        if no_answer is not None:
+            update_data["callForwarding"]["noAnswer"] = no_answer
+        if destination:
+            update_data["callForwarding"]["destination"] = destination
+
+        return await self._request(
+            "PUT", f"/telephony/config/people/{person_id}", json_data=update_data
+        )
+
+    async def get_call_park_settings(self, person_id: str) -> Dict[str, Any]:
+        """Get call park settings for a user"""
+        settings = await self.get_user_calling_settings(person_id)
+        return settings.get("callPark", {})
+
+    async def get_simultaneous_ring_settings(self, person_id: str) -> Dict[str, Any]:
+        """Get simultaneous ring settings for a user"""
+        settings = await self.get_user_calling_settings(person_id)
+        return settings.get("simultaneousRing", {})
+
+    async def update_simultaneous_ring_settings(
+        self,
+        person_id: str,
+        enabled: Optional[bool] = None,
+        phone_numbers: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Update simultaneous ring settings"""
+        current = await self.get_user_calling_settings(person_id)
+        update_data = {**current}
+        
+        if "simultaneousRing" not in update_data:
+            update_data["simultaneousRing"] = {}
+        
+        if enabled is not None:
+            update_data["simultaneousRing"]["enabled"] = enabled
+        if phone_numbers:
+            update_data["simultaneousRing"]["phoneNumbers"] = phone_numbers
+
+        return await self._request(
+            "PUT", f"/telephony/config/people/{person_id}", json_data=update_data
+        )
+

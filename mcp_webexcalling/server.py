@@ -698,6 +698,655 @@ async def list_tools() -> list[Tool]:
                 "required": ["location_id"],
             },
         ),
+        # Enhanced Device Management Tools
+        Tool(
+            name="associate_device_to_user",
+            description="Associate a device to a user",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "device_id": {"type": "string", "description": "The device ID"},
+                    "person_id": {"type": "string", "description": "The user ID"},
+                },
+                "required": ["device_id", "person_id"],
+            },
+        ),
+        Tool(
+            name="unassociate_device",
+            description="Unassociate a device from a user",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "device_id": {"type": "string", "description": "The device ID"},
+                },
+                "required": ["device_id"],
+            },
+        ),
+        Tool(
+            name="provision_device",
+            description="Provision a device for a user",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "device_id": {"type": "string", "description": "The device ID"},
+                    "person_id": {"type": "string", "description": "The user ID"},
+                    "location_id": {"type": "string", "description": "The location ID"},
+                },
+                "required": ["device_id", "person_id", "location_id"],
+            },
+        ),
+        Tool(
+            name="activate_device",
+            description="Activate a device",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "device_id": {"type": "string", "description": "The device ID"},
+                },
+                "required": ["device_id"],
+            },
+        ),
+        Tool(
+            name="deactivate_device",
+            description="Deactivate a device",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "device_id": {"type": "string", "description": "The device ID"},
+                },
+                "required": ["device_id"],
+            },
+        ),
+        Tool(
+            name="get_device_associations",
+            description="Get device associations and status",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "device_id": {"type": "string", "description": "The device ID"},
+                },
+                "required": ["device_id"],
+            },
+        ),
+        Tool(
+            name="list_user_devices",
+            description="List all devices associated with a user",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "person_id": {"type": "string", "description": "The user ID"},
+                },
+                "required": ["person_id"],
+            },
+        ),
+        # Location CRUD Operations
+        Tool(
+            name="create_location",
+            description="Create a new location",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Location name"},
+                    "address": {"type": "object", "description": "Address object"},
+                    "org_id": {"type": "string", "description": "Organization ID"},
+                    "emergency_location": {"type": "boolean", "description": "Emergency location flag"},
+                },
+                "required": ["name", "address"],
+            },
+        ),
+        Tool(
+            name="update_location",
+            description="Update a location",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "location_id": {"type": "string", "description": "Location ID"},
+                    "name": {"type": "string", "description": "Location name"},
+                    "address": {"type": "object", "description": "Address object"},
+                    "emergency_location": {"type": "boolean", "description": "Emergency location flag"},
+                },
+                "required": ["location_id"],
+            },
+        ),
+        Tool(
+            name="delete_location",
+            description="Delete a location",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "location_id": {"type": "string", "description": "Location ID"},
+                },
+                "required": ["location_id"],
+            },
+        ),
+        # User CRUD Operations
+        Tool(
+            name="create_user",
+            description="Create a new user",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "emails": {"type": "array", "items": {"type": "string"}, "description": "User email addresses"},
+                    "display_name": {"type": "string", "description": "Display name"},
+                    "first_name": {"type": "string", "description": "First name"},
+                    "last_name": {"type": "string", "description": "Last name"},
+                    "org_id": {"type": "string", "description": "Organization ID"},
+                    "location_id": {"type": "string", "description": "Location ID"},
+                },
+                "required": ["emails", "display_name"],
+            },
+        ),
+        Tool(
+            name="update_user",
+            description="Update a user",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "person_id": {"type": "string", "description": "User ID"},
+                    "display_name": {"type": "string", "description": "Display name"},
+                    "first_name": {"type": "string", "description": "First name"},
+                    "last_name": {"type": "string", "description": "Last name"},
+                    "emails": {"type": "array", "items": {"type": "string"}, "description": "Email addresses"},
+                    "location_id": {"type": "string", "description": "Location ID"},
+                },
+                "required": ["person_id"],
+            },
+        ),
+        Tool(
+            name="delete_user",
+            description="Delete a user",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "person_id": {"type": "string", "description": "User ID"},
+                },
+                "required": ["person_id"],
+            },
+        ),
+        # Call Queue Management
+        Tool(
+            name="create_call_queue",
+            description="Create a new call queue",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Queue name"},
+                    "location_id": {"type": "string", "description": "Location ID"},
+                    "phone_number": {"type": "string", "description": "Phone number"},
+                    "call_policies": {"type": "object", "description": "Call policies"},
+                },
+                "required": ["name", "location_id"],
+            },
+        ),
+        Tool(
+            name="update_call_queue",
+            description="Update a call queue",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "queue_id": {"type": "string", "description": "Queue ID"},
+                    "name": {"type": "string", "description": "Queue name"},
+                    "phone_number": {"type": "string", "description": "Phone number"},
+                    "call_policies": {"type": "object", "description": "Call policies"},
+                },
+                "required": ["queue_id"],
+            },
+        ),
+        Tool(
+            name="delete_call_queue",
+            description="Delete a call queue",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "queue_id": {"type": "string", "description": "Queue ID"},
+                },
+                "required": ["queue_id"],
+            },
+        ),
+        Tool(
+            name="add_agent_to_queue",
+            description="Add an agent to a call queue",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "queue_id": {"type": "string", "description": "Queue ID"},
+                    "person_id": {"type": "string", "description": "User ID"},
+                    "skill_level": {"type": "integer", "description": "Skill level"},
+                },
+                "required": ["queue_id", "person_id"],
+            },
+        ),
+        Tool(
+            name="remove_agent_from_queue",
+            description="Remove an agent from a call queue",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "queue_id": {"type": "string", "description": "Queue ID"},
+                    "person_id": {"type": "string", "description": "User ID"},
+                },
+                "required": ["queue_id", "person_id"],
+            },
+        ),
+        Tool(
+            name="list_queue_agents",
+            description="List all agents in a call queue",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "queue_id": {"type": "string", "description": "Queue ID"},
+                },
+                "required": ["queue_id"],
+            },
+        ),
+        # Auto Attendant CRUD
+        Tool(
+            name="create_auto_attendant",
+            description="Create a new auto attendant",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Auto attendant name"},
+                    "location_id": {"type": "string", "description": "Location ID"},
+                    "phone_number": {"type": "string", "description": "Phone number"},
+                    "business_schedule": {"type": "object", "description": "Business schedule"},
+                    "menu": {"type": "object", "description": "Menu configuration"},
+                },
+                "required": ["name", "location_id"],
+            },
+        ),
+        Tool(
+            name="update_auto_attendant",
+            description="Update an auto attendant",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "auto_attendant_id": {"type": "string", "description": "Auto attendant ID"},
+                    "name": {"type": "string", "description": "Auto attendant name"},
+                    "phone_number": {"type": "string", "description": "Phone number"},
+                    "business_schedule": {"type": "object", "description": "Business schedule"},
+                    "menu": {"type": "object", "description": "Menu configuration"},
+                },
+                "required": ["auto_attendant_id"],
+            },
+        ),
+        Tool(
+            name="delete_auto_attendant",
+            description="Delete an auto attendant",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "auto_attendant_id": {"type": "string", "description": "Auto attendant ID"},
+                },
+                "required": ["auto_attendant_id"],
+            },
+        ),
+        # Hunt Group CRUD
+        Tool(
+            name="create_hunt_group",
+            description="Create a new hunt group",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Hunt group name"},
+                    "location_id": {"type": "string", "description": "Location ID"},
+                    "phone_number": {"type": "string", "description": "Phone number"},
+                    "distribution": {"type": "string", "description": "Distribution method"},
+                },
+                "required": ["name", "location_id"],
+            },
+        ),
+        Tool(
+            name="update_hunt_group",
+            description="Update a hunt group",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "hunt_group_id": {"type": "string", "description": "Hunt group ID"},
+                    "name": {"type": "string", "description": "Hunt group name"},
+                    "phone_number": {"type": "string", "description": "Phone number"},
+                    "distribution": {"type": "string", "description": "Distribution method"},
+                },
+                "required": ["hunt_group_id"],
+            },
+        ),
+        Tool(
+            name="delete_hunt_group",
+            description="Delete a hunt group",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "hunt_group_id": {"type": "string", "description": "Hunt group ID"},
+                },
+                "required": ["hunt_group_id"],
+            },
+        ),
+        Tool(
+            name="add_member_to_hunt_group",
+            description="Add a member to a hunt group",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "hunt_group_id": {"type": "string", "description": "Hunt group ID"},
+                    "person_id": {"type": "string", "description": "User ID"},
+                },
+                "required": ["hunt_group_id", "person_id"],
+            },
+        ),
+        Tool(
+            name="remove_member_from_hunt_group",
+            description="Remove a member from a hunt group",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "hunt_group_id": {"type": "string", "description": "Hunt group ID"},
+                    "person_id": {"type": "string", "description": "User ID"},
+                },
+                "required": ["hunt_group_id", "person_id"],
+            },
+        ),
+        # Enhanced Phone Number Management
+        Tool(
+            name="unassign_phone_number",
+            description="Unassign a phone number from a user",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "number_id": {"type": "string", "description": "Phone number ID"},
+                },
+                "required": ["number_id"],
+            },
+        ),
+        Tool(
+            name="assign_phone_number_to_location",
+            description="Assign a phone number to a location",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "number_id": {"type": "string", "description": "Phone number ID"},
+                    "location_id": {"type": "string", "description": "Location ID"},
+                },
+                "required": ["number_id", "location_id"],
+            },
+        ),
+        Tool(
+            name="search_available_phone_numbers",
+            description="Search for available phone numbers",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "location_id": {"type": "string", "description": "Location ID"},
+                    "area_code": {"type": "string", "description": "Area code"},
+                    "state": {"type": "string", "description": "State"},
+                    "country": {"type": "string", "description": "Country"},
+                },
+                "required": ["location_id"],
+            },
+        ),
+        # Voicemail Management
+        Tool(
+            name="get_user_voicemail_settings",
+            description="Get voicemail settings for a user",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "person_id": {"type": "string", "description": "User ID"},
+                },
+                "required": ["person_id"],
+            },
+        ),
+        Tool(
+            name="update_user_voicemail_settings",
+            description="Update voicemail settings for a user",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "person_id": {"type": "string", "description": "User ID"},
+                    "enabled": {"type": "boolean", "description": "Enable voicemail"},
+                    "greeting": {"type": "object", "description": "Greeting configuration"},
+                    "pin": {"type": "string", "description": "PIN"},
+                },
+                "required": ["person_id"],
+            },
+        ),
+        Tool(
+            name="list_voicemail_messages",
+            description="List voicemail messages for a user",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "person_id": {"type": "string", "description": "User ID"},
+                    "max_results": {"type": "integer", "description": "Max results", "default": 100},
+                },
+                "required": ["person_id"],
+            },
+        ),
+        Tool(
+            name="get_voicemail_message",
+            description="Get a specific voicemail message",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "message_id": {"type": "string", "description": "Message ID"},
+                },
+                "required": ["message_id"],
+            },
+        ),
+        Tool(
+            name="delete_voicemail_message",
+            description="Delete a voicemail message",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "message_id": {"type": "string", "description": "Message ID"},
+                },
+                "required": ["message_id"],
+            },
+        ),
+        # Call Recording Management
+        Tool(
+            name="list_call_recordings",
+            description="List call recordings",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "start_time": {"type": "string", "description": "Start time (ISO 8601)"},
+                    "end_time": {"type": "string", "description": "End time (ISO 8601)"},
+                    "person_id": {"type": "string", "description": "User ID"},
+                    "max_results": {"type": "integer", "description": "Max results", "default": 100},
+                },
+                "required": [],
+            },
+        ),
+        Tool(
+            name="get_call_recording",
+            description="Get details about a call recording",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "recording_id": {"type": "string", "description": "Recording ID"},
+                },
+                "required": ["recording_id"],
+            },
+        ),
+        # Enhanced Reporting
+        Tool(
+            name="export_call_records",
+            description="Export call records in various formats",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "start_time": {"type": "string", "description": "Start time (ISO 8601)"},
+                    "end_time": {"type": "string", "description": "End time (ISO 8601)"},
+                    "format": {"type": "string", "description": "Export format (csv, json, etc.)", "default": "csv"},
+                    "location_id": {"type": "string", "description": "Location ID"},
+                },
+                "required": ["start_time", "end_time"],
+            },
+        ),
+        Tool(
+            name="get_real_time_call_metrics",
+            description="Get real-time call metrics",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "location_id": {"type": "string", "description": "Location ID"},
+                },
+                "required": [],
+            },
+        ),
+        Tool(
+            name="get_call_statistics",
+            description="Get detailed call statistics with grouping",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "start_time": {"type": "string", "description": "Start time (ISO 8601)"},
+                    "end_time": {"type": "string", "description": "End time (ISO 8601)"},
+                    "location_id": {"type": "string", "description": "Location ID"},
+                    "group_by": {"type": "string", "description": "Group by (user, location, etc.)"},
+                },
+                "required": ["start_time", "end_time"],
+            },
+        ),
+        Tool(
+            name="get_user_call_statistics",
+            description="Get call statistics for a specific user",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "person_id": {"type": "string", "description": "User ID"},
+                    "start_time": {"type": "string", "description": "Start time (ISO 8601)"},
+                    "end_time": {"type": "string", "description": "End time (ISO 8601)"},
+                },
+                "required": ["person_id", "start_time", "end_time"],
+            },
+        ),
+        # Webhook Management
+        Tool(
+            name="list_webhooks",
+            description="List all webhooks",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "max_results": {"type": "integer", "description": "Max results", "default": 100},
+                },
+                "required": [],
+            },
+        ),
+        Tool(
+            name="create_webhook",
+            description="Create a webhook",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Webhook name"},
+                    "target_url": {"type": "string", "description": "Target URL"},
+                    "resource": {"type": "string", "description": "Resource type"},
+                    "event": {"type": "string", "description": "Event type"},
+                    "secret": {"type": "string", "description": "Webhook secret"},
+                },
+                "required": ["name", "target_url", "resource", "event"],
+            },
+        ),
+        Tool(
+            name="get_webhook_details",
+            description="Get webhook details",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "webhook_id": {"type": "string", "description": "Webhook ID"},
+                },
+                "required": ["webhook_id"],
+            },
+        ),
+        Tool(
+            name="update_webhook",
+            description="Update a webhook",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "webhook_id": {"type": "string", "description": "Webhook ID"},
+                    "name": {"type": "string", "description": "Webhook name"},
+                    "target_url": {"type": "string", "description": "Target URL"},
+                    "secret": {"type": "string", "description": "Webhook secret"},
+                },
+                "required": ["webhook_id"],
+            },
+        ),
+        Tool(
+            name="delete_webhook",
+            description="Delete a webhook",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "webhook_id": {"type": "string", "description": "Webhook ID"},
+                },
+                "required": ["webhook_id"],
+            },
+        ),
+        # Advanced Features
+        Tool(
+            name="get_call_forwarding_settings",
+            description="Get call forwarding settings for a user",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "person_id": {"type": "string", "description": "User ID"},
+                },
+                "required": ["person_id"],
+            },
+        ),
+        Tool(
+            name="update_call_forwarding_settings",
+            description="Update call forwarding settings",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "person_id": {"type": "string", "description": "User ID"},
+                    "always": {"type": "boolean", "description": "Forward always"},
+                    "busy": {"type": "boolean", "description": "Forward when busy"},
+                    "no_answer": {"type": "boolean", "description": "Forward when no answer"},
+                    "destination": {"type": "string", "description": "Forward destination"},
+                },
+                "required": ["person_id"],
+            },
+        ),
+        Tool(
+            name="get_call_park_settings",
+            description="Get call park settings for a user",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "person_id": {"type": "string", "description": "User ID"},
+                },
+                "required": ["person_id"],
+            },
+        ),
+        Tool(
+            name="get_simultaneous_ring_settings",
+            description="Get simultaneous ring settings for a user",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "person_id": {"type": "string", "description": "User ID"},
+                },
+                "required": ["person_id"],
+            },
+        ),
+        Tool(
+            name="update_simultaneous_ring_settings",
+            description="Update simultaneous ring settings",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "person_id": {"type": "string", "description": "User ID"},
+                    "enabled": {"type": "boolean", "description": "Enable simultaneous ring"},
+                    "phone_numbers": {"type": "array", "items": {"type": "string"}, "description": "Phone numbers"},
+                },
+                "required": ["person_id"],
+            },
+        ),
     ]
 
 
@@ -972,6 +1621,441 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> Sequence[TextConten
         elif name == "get_location_features":
             location_id = arguments["location_id"]
             result = await client.get_location_features(location_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        # Enhanced Device Management
+        elif name == "associate_device_to_user":
+            device_id = arguments["device_id"]
+            person_id = arguments["person_id"]
+            result = await client.associate_device_to_user(device_id, person_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "unassociate_device":
+            device_id = arguments["device_id"]
+            result = await client.unassociate_device(device_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "provision_device":
+            device_id = arguments["device_id"]
+            person_id = arguments["person_id"]
+            location_id = arguments["location_id"]
+            result = await client.provision_device(device_id, person_id, location_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "activate_device":
+            device_id = arguments["device_id"]
+            result = await client.activate_device(device_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "deactivate_device":
+            device_id = arguments["device_id"]
+            result = await client.deactivate_device(device_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "get_device_associations":
+            device_id = arguments["device_id"]
+            result = await client.get_device_associations(device_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "list_user_devices":
+            person_id = arguments["person_id"]
+            result = await client.list_user_devices(person_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        # Location CRUD
+        elif name == "create_location":
+            name = arguments["name"]
+            address = arguments["address"]
+            org_id = arguments.get("org_id")
+            emergency_location = arguments.get("emergency_location")
+            result = await client.create_location(
+                name=name,
+                address=address,
+                org_id=org_id,
+                emergency_location=emergency_location,
+            )
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "update_location":
+            location_id = arguments["location_id"]
+            name = arguments.get("name")
+            address = arguments.get("address")
+            emergency_location = arguments.get("emergency_location")
+            result = await client.update_location(
+                location_id=location_id,
+                name=name,
+                address=address,
+                emergency_location=emergency_location,
+            )
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "delete_location":
+            location_id = arguments["location_id"]
+            result = await client.delete_location(location_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        # User CRUD
+        elif name == "create_user":
+            emails = arguments["emails"]
+            display_name = arguments["display_name"]
+            first_name = arguments.get("first_name")
+            last_name = arguments.get("last_name")
+            org_id = arguments.get("org_id")
+            location_id = arguments.get("location_id")
+            result = await client.create_user(
+                emails=emails,
+                display_name=display_name,
+                first_name=first_name,
+                last_name=last_name,
+                org_id=org_id,
+                location_id=location_id,
+            )
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "update_user":
+            person_id = arguments["person_id"]
+            display_name = arguments.get("display_name")
+            first_name = arguments.get("first_name")
+            last_name = arguments.get("last_name")
+            emails = arguments.get("emails")
+            location_id = arguments.get("location_id")
+            result = await client.update_user(
+                person_id=person_id,
+                display_name=display_name,
+                first_name=first_name,
+                last_name=last_name,
+                emails=emails,
+                location_id=location_id,
+            )
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "delete_user":
+            person_id = arguments["person_id"]
+            result = await client.delete_user(person_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        # Call Queue Management
+        elif name == "create_call_queue":
+            name = arguments["name"]
+            location_id = arguments["location_id"]
+            phone_number = arguments.get("phone_number")
+            call_policies = arguments.get("call_policies")
+            result = await client.create_call_queue(
+                name=name,
+                location_id=location_id,
+                phone_number=phone_number,
+                call_policies=call_policies,
+            )
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "update_call_queue":
+            queue_id = arguments["queue_id"]
+            name = arguments.get("name")
+            phone_number = arguments.get("phone_number")
+            call_policies = arguments.get("call_policies")
+            result = await client.update_call_queue(
+                queue_id=queue_id,
+                name=name,
+                phone_number=phone_number,
+                call_policies=call_policies,
+            )
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "delete_call_queue":
+            queue_id = arguments["queue_id"]
+            result = await client.delete_call_queue(queue_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "add_agent_to_queue":
+            queue_id = arguments["queue_id"]
+            person_id = arguments["person_id"]
+            skill_level = arguments.get("skill_level")
+            result = await client.add_agent_to_queue(queue_id, person_id, skill_level)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "remove_agent_from_queue":
+            queue_id = arguments["queue_id"]
+            person_id = arguments["person_id"]
+            result = await client.remove_agent_from_queue(queue_id, person_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "list_queue_agents":
+            queue_id = arguments["queue_id"]
+            result = await client.list_queue_agents(queue_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        # Auto Attendant CRUD
+        elif name == "create_auto_attendant":
+            name = arguments["name"]
+            location_id = arguments["location_id"]
+            phone_number = arguments.get("phone_number")
+            business_schedule = arguments.get("business_schedule")
+            menu = arguments.get("menu")
+            result = await client.create_auto_attendant(
+                name=name,
+                location_id=location_id,
+                phone_number=phone_number,
+                business_schedule=business_schedule,
+                menu=menu,
+            )
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "update_auto_attendant":
+            auto_attendant_id = arguments["auto_attendant_id"]
+            name = arguments.get("name")
+            phone_number = arguments.get("phone_number")
+            business_schedule = arguments.get("business_schedule")
+            menu = arguments.get("menu")
+            result = await client.update_auto_attendant(
+                auto_attendant_id=auto_attendant_id,
+                name=name,
+                phone_number=phone_number,
+                business_schedule=business_schedule,
+                menu=menu,
+            )
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "delete_auto_attendant":
+            auto_attendant_id = arguments["auto_attendant_id"]
+            result = await client.delete_auto_attendant(auto_attendant_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        # Hunt Group CRUD
+        elif name == "create_hunt_group":
+            name = arguments["name"]
+            location_id = arguments["location_id"]
+            phone_number = arguments.get("phone_number")
+            distribution = arguments.get("distribution")
+            result = await client.create_hunt_group(
+                name=name,
+                location_id=location_id,
+                phone_number=phone_number,
+                distribution=distribution,
+            )
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "update_hunt_group":
+            hunt_group_id = arguments["hunt_group_id"]
+            name = arguments.get("name")
+            phone_number = arguments.get("phone_number")
+            distribution = arguments.get("distribution")
+            result = await client.update_hunt_group(
+                hunt_group_id=hunt_group_id,
+                name=name,
+                phone_number=phone_number,
+                distribution=distribution,
+            )
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "delete_hunt_group":
+            hunt_group_id = arguments["hunt_group_id"]
+            result = await client.delete_hunt_group(hunt_group_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "add_member_to_hunt_group":
+            hunt_group_id = arguments["hunt_group_id"]
+            person_id = arguments["person_id"]
+            result = await client.add_member_to_hunt_group(hunt_group_id, person_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "remove_member_from_hunt_group":
+            hunt_group_id = arguments["hunt_group_id"]
+            person_id = arguments["person_id"]
+            result = await client.remove_member_from_hunt_group(hunt_group_id, person_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        # Enhanced Phone Number Management
+        elif name == "unassign_phone_number":
+            number_id = arguments["number_id"]
+            result = await client.unassign_phone_number(number_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "assign_phone_number_to_location":
+            number_id = arguments["number_id"]
+            location_id = arguments["location_id"]
+            result = await client.assign_phone_number_to_location(number_id, location_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "search_available_phone_numbers":
+            location_id = arguments["location_id"]
+            area_code = arguments.get("area_code")
+            state = arguments.get("state")
+            country = arguments.get("country")
+            result = await client.search_available_phone_numbers(
+                location_id=location_id,
+                area_code=area_code,
+                state=state,
+                country=country,
+            )
+            return [TextContent(type="text", text=format_json(result))]
+
+        # Voicemail Management
+        elif name == "get_user_voicemail_settings":
+            person_id = arguments["person_id"]
+            result = await client.get_user_voicemail_settings(person_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "update_user_voicemail_settings":
+            person_id = arguments["person_id"]
+            enabled = arguments.get("enabled")
+            greeting = arguments.get("greeting")
+            pin = arguments.get("pin")
+            result = await client.update_user_voicemail_settings(
+                person_id=person_id, enabled=enabled, greeting=greeting, pin=pin
+            )
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "list_voicemail_messages":
+            person_id = arguments["person_id"]
+            max_results = arguments.get("max_results", 100)
+            result = await client.list_voicemail_messages(person_id, max_results=max_results)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "get_voicemail_message":
+            message_id = arguments["message_id"]
+            result = await client.get_voicemail_message(message_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "delete_voicemail_message":
+            message_id = arguments["message_id"]
+            result = await client.delete_voicemail_message(message_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        # Call Recording Management
+        elif name == "list_call_recordings":
+            start_time = arguments.get("start_time")
+            end_time = arguments.get("end_time")
+            person_id = arguments.get("person_id")
+            max_results = arguments.get("max_results", 100)
+            result = await client.list_call_recordings(
+                start_time=start_time,
+                end_time=end_time,
+                person_id=person_id,
+                max_results=max_results,
+            )
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "get_call_recording":
+            recording_id = arguments["recording_id"]
+            result = await client.get_call_recording(recording_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        # Enhanced Reporting
+        elif name == "export_call_records":
+            start_time = arguments["start_time"]
+            end_time = arguments["end_time"]
+            format_type = arguments.get("format", "csv")
+            location_id = arguments.get("location_id")
+            result = await client.export_call_records(
+                start_time=start_time,
+                end_time=end_time,
+                format=format_type,
+                location_id=location_id,
+            )
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "get_real_time_call_metrics":
+            location_id = arguments.get("location_id")
+            result = await client.get_real_time_call_metrics(location_id=location_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "get_call_statistics":
+            start_time = arguments["start_time"]
+            end_time = arguments["end_time"]
+            location_id = arguments.get("location_id")
+            group_by = arguments.get("group_by")
+            result = await client.get_call_statistics(
+                start_time=start_time,
+                end_time=end_time,
+                location_id=location_id,
+                group_by=group_by,
+            )
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "get_user_call_statistics":
+            person_id = arguments["person_id"]
+            start_time = arguments["start_time"]
+            end_time = arguments["end_time"]
+            result = await client.get_user_call_statistics(
+                person_id=person_id, start_time=start_time, end_time=end_time
+            )
+            return [TextContent(type="text", text=format_json(result))]
+
+        # Webhook Management
+        elif name == "list_webhooks":
+            max_results = arguments.get("max_results", 100)
+            result = await client.list_webhooks(max_results=max_results)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "create_webhook":
+            name = arguments["name"]
+            target_url = arguments["target_url"]
+            resource = arguments["resource"]
+            event = arguments["event"]
+            secret = arguments.get("secret")
+            result = await client.create_webhook(
+                name=name, target_url=target_url, resource=resource, event=event, secret=secret
+            )
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "get_webhook_details":
+            webhook_id = arguments["webhook_id"]
+            result = await client.get_webhook_details(webhook_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "update_webhook":
+            webhook_id = arguments["webhook_id"]
+            name = arguments.get("name")
+            target_url = arguments.get("target_url")
+            secret = arguments.get("secret")
+            result = await client.update_webhook(
+                webhook_id=webhook_id, name=name, target_url=target_url, secret=secret
+            )
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "delete_webhook":
+            webhook_id = arguments["webhook_id"]
+            result = await client.delete_webhook(webhook_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        # Advanced Features
+        elif name == "get_call_forwarding_settings":
+            person_id = arguments["person_id"]
+            result = await client.get_call_forwarding_settings(person_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "update_call_forwarding_settings":
+            person_id = arguments["person_id"]
+            always = arguments.get("always")
+            busy = arguments.get("busy")
+            no_answer = arguments.get("no_answer")
+            destination = arguments.get("destination")
+            result = await client.update_call_forwarding_settings(
+                person_id=person_id,
+                always=always,
+                busy=busy,
+                no_answer=no_answer,
+                destination=destination,
+            )
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "get_call_park_settings":
+            person_id = arguments["person_id"]
+            result = await client.get_call_park_settings(person_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "get_simultaneous_ring_settings":
+            person_id = arguments["person_id"]
+            result = await client.get_simultaneous_ring_settings(person_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "update_simultaneous_ring_settings":
+            person_id = arguments["person_id"]
+            enabled = arguments.get("enabled")
+            phone_numbers = arguments.get("phone_numbers")
+            result = await client.update_simultaneous_ring_settings(
+                person_id=person_id, enabled=enabled, phone_numbers=phone_numbers
+            )
             return [TextContent(type="text", text=format_json(result))]
 
         else:
