@@ -31,8 +31,8 @@ This MCP server eliminates these barriers by:
 - **Analytics & Reporting**: "Get call analytics for last month" or "Show me queue performance metrics"
 - **Troubleshooting**: "What are the calling settings for user X?" or "List all devices at location Y"
 - **Bulk Operations**: "Update extensions for all users in location X" or "List all licenses in the organization"
-
-Whether you're a system administrator managing hundreds of users, a support technician troubleshooting issues, or a manager needing quick insights, this MCP server makes Webex Calling management accessible through natural conversation.
+- **Voicemail & Recording Management**: "List voicemail messages for user X" or "Get call recordings from the last week"
+- **Device Provisioning**: "Provision device ABC123 for user john@example.com at location Main Office" or "Associate device XYZ789 to user jane@example.com"
 
 ## Features
 
