@@ -98,6 +98,233 @@ See [SETUP.md](SETUP.md) for detailed installation and configuration instruction
    python -m mcp_webexcalling.server
    ```
 
+## Connecting to Claude Desktop
+
+Follow these step-by-step instructions to connect the MCP Webex Calling server to Claude Desktop.
+
+### Prerequisites
+
+- Python 3.9+ installed
+- Claude Desktop installed
+- Webex access token (see [Setup](#setup) above)
+
+### Step 1: Install the Server
+
+1. **Clone or download the repository:**
+   ```bash
+   git clone https://github.com/lutztalk/mcp-webexcalling.git
+   cd mcp-webexcalling
+   ```
+
+2. **Create a virtual environment:**
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+3. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Install the package (optional but recommended):**
+   ```bash
+   pip install -e .
+   ```
+
+### Step 2: Get Your Webex Access Token
+
+1. Go to [Webex Developer Portal](https://developer.webex.com/)
+2. Sign in with your Webex account
+3. Click your profile icon → **Personal Access Tokens**
+4. Click **"Create a Token"**
+5. Name it (e.g., "MCP Server")
+6. Copy the token (you won't be able to see it again)
+
+**Required Scopes:**
+- `spark:people_read` - Read people information
+- `spark-admin:locations_read` - Read location information
+- `spark-admin:organizations_read` - Read organization information
+- `spark-admin:telephony_config_read` - Read calling configuration
+- `spark-admin:read_call_history` - Read call history (optional)
+
+### Step 3: Find Your Python Path
+
+You need the full path to your Python executable. Run this command:
+
+**macOS/Linux:**
+```bash
+which python3
+# or if using venv:
+which python
+```
+
+**Windows (PowerShell):**
+```powershell
+where.exe python
+```
+
+**Windows (CMD):**
+```cmd
+where python
+```
+
+Note the full path (e.g., `/Users/yourname/mcp-webexcalling/venv/bin/python3` or `C:\Users\yourname\mcp-webexcalling\venv\Scripts\python.exe`)
+
+### Step 4: Configure Claude Desktop
+
+1. **Locate the Claude Desktop configuration file:**
+
+   **macOS:**
+   ```
+   ~/Library/Application Support/Claude/claude_desktop_config.json
+   ```
+
+   **Windows:**
+   ```
+   %APPDATA%\Claude\claude_desktop_config.json
+   ```
+   (Typically: `C:\Users\YourName\AppData\Roaming\Claude\claude_desktop_config.json`)
+
+   **Linux:**
+   ```
+   ~/.config/Claude/claude_desktop_config.json
+   ```
+
+2. **Open the configuration file in a text editor**
+
+   If the file doesn't exist, create it. If it exists, you'll see a JSON structure like:
+   ```json
+   {
+     "mcpServers": {
+       // existing servers...
+     }
+   }
+   ```
+
+3. **Add the Webex Calling server configuration:**
+
+   Replace the following placeholders:
+   - `YOUR_PYTHON_PATH` - The full path to your Python executable from Step 3
+   - `YOUR_PROJECT_PATH` - The full path to the `mcp-webexcalling` directory
+   - `YOUR_WEBEX_TOKEN` - Your Webex access token from Step 2
+
+   **macOS/Linux Example:**
+   ```json
+   {
+     "mcpServers": {
+       "webex-calling": {
+         "command": "/Users/yourname/mcp-webexcalling/venv/bin/python3",
+         "args": ["-m", "mcp_webexcalling.server"],
+         "cwd": "/Users/yourname/mcp-webexcalling",
+         "env": {
+           "WEBEX_ACCESS_TOKEN": "YOUR_WEBEX_TOKEN_HERE",
+           "WEBEX_BASE_URL": "https://webexapis.com/v1"
+         }
+       }
+     }
+   }
+   ```
+
+   **Windows Example:**
+   ```json
+   {
+     "mcpServers": {
+       "webex-calling": {
+         "command": "C:\\Users\\YourName\\mcp-webexcalling\\venv\\Scripts\\python.exe",
+         "args": ["-m", "mcp_webexcalling.server"],
+         "cwd": "C:\\Users\\YourName\\mcp-webexcalling",
+         "env": {
+           "WEBEX_ACCESS_TOKEN": "YOUR_WEBEX_TOKEN_HERE",
+           "WEBEX_BASE_URL": "https://webexapis.com/v1"
+         }
+       }
+     }
+   }
+   ```
+
+   **Important Notes:**
+   - Use forward slashes `/` on macOS/Linux, backslashes `\\` on Windows
+   - On Windows, escape backslashes in JSON strings as `\\`
+   - Make sure the `cwd` path matches your actual project directory
+   - The `command` should point to the Python executable in your virtual environment
+
+4. **Save the configuration file**
+
+### Step 5: Restart Claude Desktop
+
+1. **Quit Claude Desktop completely:**
+   - macOS: Right-click the Claude icon in the dock → Quit
+   - Windows: Close the application or use Task Manager
+   - Linux: Close the application
+
+2. **Reopen Claude Desktop**
+
+3. **Verify the connection:**
+   - Open a new chat in Claude Desktop
+   - You should see "webex-calling" in the MCP servers list (if visible)
+   - Try asking: "What locations are in my Webex organization?"
+   - If it works, you're connected!
+
+### Troubleshooting
+
+#### "Server disconnected" Error
+
+1. **Check Python path:**
+   - Verify the `command` path is correct and points to an executable Python
+   - Try using the full path to `python3.12` or `python3.11` instead of just `python3`
+
+2. **Check project path:**
+   - Verify the `cwd` path is correct and points to the project root
+   - Make sure the directory contains `mcp_webexcalling/` folder
+
+3. **Check dependencies:**
+   - Make sure you've installed requirements: `pip install -r requirements.txt`
+   - Try installing in editable mode: `pip install -e .`
+
+4. **Check token:**
+   - Verify your `WEBEX_ACCESS_TOKEN` is correct
+   - Test the token manually:
+     ```bash
+     curl -H "Authorization: Bearer YOUR_TOKEN" https://webexapis.com/v1/people/me
+     ```
+
+5. **Check logs:**
+   - Look for error messages in Claude Desktop's console/logs
+   - On macOS, check Console.app for Claude Desktop errors
+
+#### "Module not found" Error
+
+1. Make sure you're using the Python from your virtual environment
+2. Reinstall dependencies: `pip install -r requirements.txt`
+3. Install in editable mode: `pip install -e .`
+
+#### Path Issues on Windows
+
+- Use double backslashes `\\` in JSON strings
+- Or use forward slashes `/` (Windows accepts both)
+- Make sure paths don't have trailing slashes
+
+#### Still Having Issues?
+
+1. **Test the server manually:**
+   ```bash
+   cd /path/to/mcp-webexcalling
+   source venv/bin/activate  # or venv\Scripts\activate on Windows
+   python -m mcp_webexcalling.server
+   ```
+   If this works, the server is fine and the issue is with Claude Desktop configuration.
+
+2. **Check the configuration file syntax:**
+   - Use a JSON validator to ensure your config file is valid JSON
+   - Make sure all quotes are properly escaped
+
+3. **Try absolute paths:**
+   - Use full absolute paths for both `command` and `cwd`
+   - Avoid relative paths or `~` shortcuts
+
+For more detailed troubleshooting, see [SETUP.md](SETUP.md).
+
 ## Configuration
 
 The server uses environment variables for configuration:
