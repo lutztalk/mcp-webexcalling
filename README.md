@@ -33,6 +33,8 @@ This MCP server eliminates these barriers by:
 - **Bulk Operations**: "Update extensions for all users in location X" or "List all licenses in the organization"
 - **Voicemail & Recording Management**: "List voicemail messages for user X" or "Get call recordings from the last week"
 - **Device Provisioning**: "Provision device ABC123 for user john@example.com at location Main Office" or "Associate device XYZ789 to user jane@example.com"
+- **License Management**: "What licenses does user X have?" or "Assign license Y to user Z" or "List all licenses in the organization"
+- **Call Queue & Hunt Group Configuration**: "Add agent X to call queue Y" or "Create a new hunt group for after-hours support" or "List all members in hunt group Z"
 
 ## Features
 
