@@ -259,6 +259,445 @@ async def list_tools() -> list[Tool]:
                 "required": ["query"],
             },
         ),
+        # License Management Tools
+        Tool(
+            name="list_licenses",
+            description="List all licenses in your organization",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "org_id": {
+                        "type": "string",
+                        "description": "Optional organization ID to filter licenses",
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Maximum number of results to return (default: 100)",
+                        "default": 100,
+                    },
+                },
+                "required": [],
+            },
+        ),
+        Tool(
+            name="get_license_details",
+            description="Get details about a specific license",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "license_id": {
+                        "type": "string",
+                        "description": "The ID of the license",
+                    },
+                },
+                "required": ["license_id"],
+            },
+        ),
+        Tool(
+            name="list_user_licenses",
+            description="List licenses assigned to a user",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "person_id": {
+                        "type": "string",
+                        "description": "The ID of the user",
+                    },
+                },
+                "required": ["person_id"],
+            },
+        ),
+        Tool(
+            name="assign_license_to_user",
+            description="Assign a license to a user",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "person_id": {
+                        "type": "string",
+                        "description": "The ID of the user",
+                    },
+                    "license_id": {
+                        "type": "string",
+                        "description": "The ID of the license to assign",
+                    },
+                },
+                "required": ["person_id", "license_id"],
+            },
+        ),
+        Tool(
+            name="remove_license_from_user",
+            description="Remove a license from a user",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "person_id": {
+                        "type": "string",
+                        "description": "The ID of the user",
+                    },
+                    "license_id": {
+                        "type": "string",
+                        "description": "The ID of the license to remove",
+                    },
+                },
+                "required": ["person_id", "license_id"],
+            },
+        ),
+        # Device Management Tools
+        Tool(
+            name="list_devices",
+            description="List devices in your organization",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "person_id": {
+                        "type": "string",
+                        "description": "Optional user ID to filter devices",
+                    },
+                    "location_id": {
+                        "type": "string",
+                        "description": "Optional location ID to filter devices",
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Maximum number of results to return (default: 100)",
+                        "default": 100,
+                    },
+                },
+                "required": [],
+            },
+        ),
+        Tool(
+            name="get_device_details",
+            description="Get details about a specific device",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "device_id": {
+                        "type": "string",
+                        "description": "The ID of the device",
+                    },
+                },
+                "required": ["device_id"],
+            },
+        ),
+        # Phone Number Tools
+        Tool(
+            name="list_phone_numbers",
+            description="List phone numbers in your organization",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "location_id": {
+                        "type": "string",
+                        "description": "Optional location ID to filter phone numbers",
+                    },
+                    "org_id": {
+                        "type": "string",
+                        "description": "Optional organization ID to filter phone numbers",
+                    },
+                    "number": {
+                        "type": "string",
+                        "description": "Optional phone number to search for",
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Maximum number of results to return (default: 100)",
+                        "default": 100,
+                    },
+                },
+                "required": [],
+            },
+        ),
+        Tool(
+            name="get_phone_number_details",
+            description="Get details about a specific phone number",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "number_id": {
+                        "type": "string",
+                        "description": "The ID of the phone number",
+                    },
+                },
+                "required": ["number_id"],
+            },
+        ),
+        # User Extension Management Tools
+        Tool(
+            name="update_user_extension",
+            description="Update user extension and calling settings",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "person_id": {
+                        "type": "string",
+                        "description": "The ID of the user",
+                    },
+                    "extension": {
+                        "type": "string",
+                        "description": "Optional extension number to set",
+                    },
+                    "extension_dial": {
+                        "type": "string",
+                        "description": "Optional extension dial string",
+                    },
+                    "first_name": {
+                        "type": "string",
+                        "description": "Optional first name",
+                    },
+                    "last_name": {
+                        "type": "string",
+                        "description": "Optional last name",
+                    },
+                    "phone_number": {
+                        "type": "string",
+                        "description": "Optional phone number",
+                    },
+                    "mobile_number": {
+                        "type": "string",
+                        "description": "Optional mobile number",
+                    },
+                    "location_id": {
+                        "type": "string",
+                        "description": "Optional location ID",
+                    },
+                },
+                "required": ["person_id"],
+            },
+        ),
+        Tool(
+            name="assign_phone_number_to_user",
+            description="Assign a phone number to a user",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "person_id": {
+                        "type": "string",
+                        "description": "The ID of the user",
+                    },
+                    "phone_number_id": {
+                        "type": "string",
+                        "description": "The ID of the phone number to assign",
+                    },
+                },
+                "required": ["person_id", "phone_number_id"],
+            },
+        ),
+        Tool(
+            name="update_user_calling_features",
+            description="Update user calling features (call park, forwarding, voicemail, etc.)",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "person_id": {
+                        "type": "string",
+                        "description": "The ID of the user",
+                    },
+                    "call_park_enabled": {
+                        "type": "boolean",
+                        "description": "Enable/disable call park",
+                    },
+                    "call_forwarding_enabled": {
+                        "type": "boolean",
+                        "description": "Enable/disable call forwarding",
+                    },
+                    "voicemail_enabled": {
+                        "type": "boolean",
+                        "description": "Enable/disable voicemail",
+                    },
+                    "call_recording_enabled": {
+                        "type": "boolean",
+                        "description": "Enable/disable call recording",
+                    },
+                    "call_waiting_enabled": {
+                        "type": "boolean",
+                        "description": "Enable/disable call waiting",
+                    },
+                },
+                "required": ["person_id"],
+            },
+        ),
+        # Reporting and Analytics Tools
+        Tool(
+            name="get_call_detail_records",
+            description="Get call detail records (CDRs) for reporting",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "start_time": {
+                        "type": "string",
+                        "description": "Start time in ISO 8601 format (e.g., 2024-01-01T00:00:00Z)",
+                    },
+                    "end_time": {
+                        "type": "string",
+                        "description": "End time in ISO 8601 format (e.g., 2024-01-31T23:59:59Z)",
+                    },
+                    "person_id": {
+                        "type": "string",
+                        "description": "Optional user ID to filter records",
+                    },
+                    "location_id": {
+                        "type": "string",
+                        "description": "Optional location ID to filter records",
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Maximum number of results to return (default: 100)",
+                        "default": 100,
+                    },
+                },
+                "required": [],
+            },
+        ),
+        Tool(
+            name="get_call_analytics",
+            description="Get call analytics and statistics for a time period",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "start_time": {
+                        "type": "string",
+                        "description": "Start time in ISO 8601 format (e.g., 2024-01-01T00:00:00Z)",
+                    },
+                    "end_time": {
+                        "type": "string",
+                        "description": "End time in ISO 8601 format (e.g., 2024-01-31T23:59:59Z)",
+                    },
+                    "location_id": {
+                        "type": "string",
+                        "description": "Optional location ID to filter analytics",
+                    },
+                    "org_id": {
+                        "type": "string",
+                        "description": "Optional organization ID to filter analytics",
+                    },
+                },
+                "required": ["start_time", "end_time"],
+            },
+        ),
+        Tool(
+            name="get_queue_analytics",
+            description="Get analytics for a specific call queue",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "queue_id": {
+                        "type": "string",
+                        "description": "The ID of the call queue",
+                    },
+                    "start_time": {
+                        "type": "string",
+                        "description": "Start time in ISO 8601 format (e.g., 2024-01-01T00:00:00Z)",
+                    },
+                    "end_time": {
+                        "type": "string",
+                        "description": "End time in ISO 8601 format (e.g., 2024-01-31T23:59:59Z)",
+                    },
+                },
+                "required": ["queue_id", "start_time", "end_time"],
+            },
+        ),
+        # Additional Data Retrieval Tools
+        Tool(
+            name="list_trunk_groups",
+            description="List trunk groups in your organization",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "location_id": {
+                        "type": "string",
+                        "description": "Optional location ID to filter trunk groups",
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Maximum number of results to return (default: 100)",
+                        "default": 100,
+                    },
+                },
+                "required": [],
+            },
+        ),
+        Tool(
+            name="get_trunk_group_details",
+            description="Get details about a specific trunk group",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "trunk_group_id": {
+                        "type": "string",
+                        "description": "The ID of the trunk group",
+                    },
+                },
+                "required": ["trunk_group_id"],
+            },
+        ),
+        Tool(
+            name="list_hunt_groups",
+            description="List hunt groups in your organization",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "location_id": {
+                        "type": "string",
+                        "description": "Optional location ID to filter hunt groups",
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Maximum number of results to return (default: 100)",
+                        "default": 100,
+                    },
+                },
+                "required": [],
+            },
+        ),
+        Tool(
+            name="get_hunt_group_details",
+            description="Get details about a specific hunt group",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "hunt_group_id": {
+                        "type": "string",
+                        "description": "The ID of the hunt group",
+                    },
+                },
+                "required": ["hunt_group_id"],
+            },
+        ),
+        Tool(
+            name="list_call_park_extensions",
+            description="List call park extensions in your organization",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "location_id": {
+                        "type": "string",
+                        "description": "Optional location ID to filter call park extensions",
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Maximum number of results to return (default: 100)",
+                        "default": 100,
+                    },
+                },
+                "required": [],
+            },
+        ),
+        Tool(
+            name="get_location_features",
+            description="Get available features for a location",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "location_id": {
+                        "type": "string",
+                        "description": "The ID of the location",
+                    },
+                },
+                "required": ["location_id"],
+            },
+        ),
     ]
 
 
@@ -354,6 +793,185 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> Sequence[TextConten
             org_id = arguments.get("org_id")
             max_results = arguments.get("max_results", 100)
             result = await client.search_users(query=query, org_id=org_id, max_results=max_results)
+            return [TextContent(type="text", text=format_json(result))]
+
+        # License Management
+        elif name == "list_licenses":
+            org_id = arguments.get("org_id")
+            max_results = arguments.get("max_results", 100)
+            result = await client.list_licenses(org_id=org_id, max_results=max_results)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "get_license_details":
+            license_id = arguments["license_id"]
+            result = await client.get_license_details(license_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "list_user_licenses":
+            person_id = arguments["person_id"]
+            result = await client.list_user_licenses(person_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "assign_license_to_user":
+            person_id = arguments["person_id"]
+            license_id = arguments["license_id"]
+            result = await client.assign_license_to_user(person_id, license_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "remove_license_from_user":
+            person_id = arguments["person_id"]
+            license_id = arguments["license_id"]
+            result = await client.remove_license_from_user(person_id, license_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        # Device Management
+        elif name == "list_devices":
+            person_id = arguments.get("person_id")
+            location_id = arguments.get("location_id")
+            max_results = arguments.get("max_results", 100)
+            result = await client.list_devices(
+                person_id=person_id, location_id=location_id, max_results=max_results
+            )
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "get_device_details":
+            device_id = arguments["device_id"]
+            result = await client.get_device_details(device_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        # Phone Numbers
+        elif name == "list_phone_numbers":
+            location_id = arguments.get("location_id")
+            org_id = arguments.get("org_id")
+            number = arguments.get("number")
+            max_results = arguments.get("max_results", 100)
+            result = await client.list_phone_numbers(
+                location_id=location_id, org_id=org_id, number=number, max_results=max_results
+            )
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "get_phone_number_details":
+            number_id = arguments["number_id"]
+            result = await client.get_phone_number_details(number_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        # User Extension Management
+        elif name == "update_user_extension":
+            person_id = arguments["person_id"]
+            extension = arguments.get("extension")
+            extension_dial = arguments.get("extension_dial")
+            first_name = arguments.get("first_name")
+            last_name = arguments.get("last_name")
+            phone_number = arguments.get("phone_number")
+            mobile_number = arguments.get("mobile_number")
+            location_id = arguments.get("location_id")
+            result = await client.update_user_extension(
+                person_id=person_id,
+                extension=extension,
+                extension_dial=extension_dial,
+                first_name=first_name,
+                last_name=last_name,
+                phone_number=phone_number,
+                mobile_number=mobile_number,
+                location_id=location_id,
+            )
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "assign_phone_number_to_user":
+            person_id = arguments["person_id"]
+            phone_number_id = arguments["phone_number_id"]
+            result = await client.assign_phone_number_to_user(person_id, phone_number_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "update_user_calling_features":
+            person_id = arguments["person_id"]
+            call_park_enabled = arguments.get("call_park_enabled")
+            call_forwarding_enabled = arguments.get("call_forwarding_enabled")
+            voicemail_enabled = arguments.get("voicemail_enabled")
+            call_recording_enabled = arguments.get("call_recording_enabled")
+            call_waiting_enabled = arguments.get("call_waiting_enabled")
+            result = await client.update_user_calling_features(
+                person_id=person_id,
+                call_park_enabled=call_park_enabled,
+                call_forwarding_enabled=call_forwarding_enabled,
+                voicemail_enabled=voicemail_enabled,
+                call_recording_enabled=call_recording_enabled,
+                call_waiting_enabled=call_waiting_enabled,
+            )
+            return [TextContent(type="text", text=format_json(result))]
+
+        # Reporting and Analytics
+        elif name == "get_call_detail_records":
+            start_time = arguments.get("start_time")
+            end_time = arguments.get("end_time")
+            person_id = arguments.get("person_id")
+            location_id = arguments.get("location_id")
+            max_results = arguments.get("max_results", 100)
+            result = await client.get_call_detail_records(
+                start_time=start_time,
+                end_time=end_time,
+                person_id=person_id,
+                location_id=location_id,
+                max_results=max_results,
+            )
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "get_call_analytics":
+            start_time = arguments["start_time"]
+            end_time = arguments["end_time"]
+            location_id = arguments.get("location_id")
+            org_id = arguments.get("org_id")
+            result = await client.get_call_analytics(
+                start_time=start_time,
+                end_time=end_time,
+                location_id=location_id,
+                org_id=org_id,
+            )
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "get_queue_analytics":
+            queue_id = arguments["queue_id"]
+            start_time = arguments["start_time"]
+            end_time = arguments["end_time"]
+            result = await client.get_queue_analytics(
+                queue_id=queue_id, start_time=start_time, end_time=end_time
+            )
+            return [TextContent(type="text", text=format_json(result))]
+
+        # Additional Data Retrieval
+        elif name == "list_trunk_groups":
+            location_id = arguments.get("location_id")
+            max_results = arguments.get("max_results", 100)
+            result = await client.list_trunk_groups(location_id=location_id, max_results=max_results)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "get_trunk_group_details":
+            trunk_group_id = arguments["trunk_group_id"]
+            result = await client.get_trunk_group_details(trunk_group_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "list_hunt_groups":
+            location_id = arguments.get("location_id")
+            max_results = arguments.get("max_results", 100)
+            result = await client.list_hunt_groups(location_id=location_id, max_results=max_results)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "get_hunt_group_details":
+            hunt_group_id = arguments["hunt_group_id"]
+            result = await client.get_hunt_group_details(hunt_group_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "list_call_park_extensions":
+            location_id = arguments.get("location_id")
+            max_results = arguments.get("max_results", 100)
+            result = await client.list_call_park_extensions(
+                location_id=location_id, max_results=max_results
+            )
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "get_location_features":
+            location_id = arguments["location_id"]
+            result = await client.get_location_features(location_id)
             return [TextContent(type="text", text=format_json(result))]
 
         else:
