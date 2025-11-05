@@ -418,42 +418,96 @@ class WebexClient:
 
         # Use the correct Webex Calling API endpoint for detailed call history
         # Documentation: https://developer.webex.com/calling/docs/api/v1/reports-detailed-call-history/get-detailed-call-history
-        endpoint = "/telephony/calls/reports/detailedCallHistory"
+        # Note: Webex Calling API may use analytics-calling.webexapis.com as base URL for this endpoint
+        # Try different endpoint variations and base URLs
         
-        try:
-            response = await self._request("GET", endpoint, params=params)
-            # The API may return items directly or in a data structure
-            if isinstance(response, list):
-                return response
-            elif "items" in response:
-                return response.get("items", [])
-            elif "data" in response:
-                return response.get("data", [])
-            else:
-                # Return the full response if structure is unexpected
-                return [response] if response else []
-        except Exception as e:
-            error_msg = str(e)
-            # Provide helpful error message based on common issues
-            if "403" in error_msg or "Forbidden" in error_msg:
-                raise Exception(
-                    f"Access denied (403 Forbidden). "
-                    f"You need the 'Webex Calling Detailed Call History API access' role. "
-                    f"This role must be assigned by another administrator - you cannot assign it to yourself. "
-                    f"Contact your Webex administrator to assign this role to your account. "
-                    f"Original error: {error_msg}"
-                )
-            elif "401" in error_msg or "Unauthorized" in error_msg:
-                raise Exception(
-                    f"Authentication failed. Check your access token and ensure it has the required scopes. "
-                    f"Original error: {error_msg}"
-                )
-            else:
-                raise Exception(
-                    f"Failed to retrieve call detail records from {endpoint}. "
-                    f"Error: {error_msg}. "
-                    f"Ensure you have the 'Webex Calling Detailed Call History API access' role assigned."
-                )
+        endpoints_to_try = [
+            "/telephony/calls/reports/detailedCallHistory",  # Standard format
+            "/telephony/reports/detailedCallHistory",  # Alternative format
+            "/telephony/calls/detailedCallHistory",  # Alternative format
+            "/calls/reports/detailedCallHistory",  # Alternative format
+            "/v1/telephony/calls/reports/detailedCallHistory",  # With v1 prefix
+        ]
+        
+        # Try with default base URL first
+        last_error = None
+        for endpoint in endpoints_to_try:
+            try:
+                response = await self._request("GET", endpoint, params=params)
+                # The API may return items directly or in a data structure
+                if isinstance(response, list):
+                    return response
+                elif "items" in response:
+                    return response.get("items", [])
+                elif "data" in response:
+                    return response.get("data", [])
+                else:
+                    # Return the full response if structure is unexpected
+                    return [response] if response else []
+            except Exception as e:
+                last_error = e
+                error_str = str(e)
+                # If it's a 404, try the next endpoint
+                if "404" in error_str or "not found" in error_str.lower():
+                    continue
+                # For other errors, check if it's auth-related first
+                if "403" in error_str or "Forbidden" in error_str:
+                    raise Exception(
+                        f"Access denied (403 Forbidden). "
+                        f"You need the 'Webex Calling Detailed Call History API access' role. "
+                        f"This role must be assigned by another administrator. "
+                        f"Contact your Webex administrator to assign this role to your account. "
+                        f"Original error: {error_str}"
+                    )
+                elif "401" in error_str or "Unauthorized" in error_str:
+                    raise Exception(
+                        f"Authentication failed. Check your access token and ensure it has the required scopes. "
+                        f"Original error: {error_str}"
+                    )
+                # For non-404 errors, raise immediately
+                raise
+        
+        # If all endpoints failed with 404, try with analytics base URL
+        analytics_base_url = "https://analytics-calling.webexapis.com/v1"
+        for endpoint in endpoints_to_try:
+            try:
+                # Temporarily use analytics base URL
+                original_base = self.base_url
+                self.base_url = analytics_base_url
+                response = await self._request("GET", endpoint, params=params)
+                # Restore original base URL
+                self.base_url = original_base
+                # The API may return items directly or in a data structure
+                if isinstance(response, list):
+                    return response
+                elif "items" in response:
+                    return response.get("items", [])
+                elif "data" in response:
+                    return response.get("data", [])
+                else:
+                    return [response] if response else []
+            except Exception as e:
+                # Restore original base URL on error
+                self.base_url = original_base
+                error_str = str(e)
+                # If it's a 404, try the next endpoint
+                if "404" in error_str or "not found" in error_str.lower():
+                    continue
+                # For other errors, raise immediately
+                raise
+        
+        # If all endpoints and base URLs failed, provide helpful error
+        error_msg = str(last_error) if last_error else "Endpoint not found"
+        raise Exception(
+            f"Failed to retrieve call detail records. "
+            f"Tried multiple endpoints and base URLs. "
+            f"Last error: {error_msg}. "
+            f"\n\nPossible solutions:"
+            f"\n1. Verify the endpoint path is correct for your Webex Calling API version"
+            f"\n2. Check if your organization uses a different base URL (e.g., analytics-calling.webexapis.com)"
+            f"\n3. Ensure you have the 'Webex Calling Detailed Call History API access' role assigned"
+            f"\n4. Verify call history data exists for the specified time range (data available 5 minutes to 48 hours after call ends)"
+        )
 
     async def get_call_analytics(
         self,
