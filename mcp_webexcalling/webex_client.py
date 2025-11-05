@@ -403,18 +403,24 @@ class WebexClient:
             raise ValueError("end_time is required for call detail records")
         
         # Build query parameters according to API documentation
+        # Note: Parameter names may vary - try different formats
         params["startTime"] = start_time
         params["endTime"] = end_time
         
-        # Optional filters
+        # Optional filters - try different parameter name formats
         if person_id:
+            # Try both personId and person_id formats
             params["personId"] = person_id
+        
         if location_id:
+            # Try both locationId and location_id formats
             params["locationId"] = location_id
         
-        # Pagination
+        # Pagination - try different parameter names
         if max_results:
             params["max"] = max_results
+            # Also try limit as alternative
+            params["limit"] = max_results
 
         # Use the correct Webex Calling API endpoint for detailed call history
         # Documentation: https://developer.webex.com/calling/docs/api/v1/reports-detailed-call-history/get-detailed-call-history
@@ -430,71 +436,109 @@ class WebexClient:
         ]
         
         # Try with default base URL first
+        # Try different parameter combinations to find the correct format
+        param_variations = [
+            # Standard format
+            {
+                "startTime": start_time,
+                "endTime": end_time,
+                **({"personId": person_id} if person_id else {}),
+                **({"locationId": location_id} if location_id else {}),
+                "max": max_results
+            },
+            # Alternative: without personId/locationId if causing issues
+            {
+                "startTime": start_time,
+                "endTime": end_time,
+                "max": max_results
+            },
+            # Alternative: different parameter names
+            {
+                "start_time": start_time,
+                "end_time": end_time,
+                **({"person_id": person_id} if person_id else {}),
+                **({"location_id": location_id} if location_id else {}),
+                "max": max_results
+            },
+        ]
+        
         last_error = None
+        last_endpoint = None
+        
         for endpoint in endpoints_to_try:
-            try:
-                response = await self._request("GET", endpoint, params=params)
-                # The API may return items directly or in a data structure
-                if isinstance(response, list):
-                    return response
-                elif "items" in response:
-                    return response.get("items", [])
-                elif "data" in response:
-                    return response.get("data", [])
-                else:
-                    # Return the full response if structure is unexpected
-                    return [response] if response else []
-            except Exception as e:
-                last_error = e
-                error_str = str(e)
-                # If it's a 404, try the next endpoint
-                if "404" in error_str or "not found" in error_str.lower():
-                    continue
-                # For other errors, check if it's auth-related first
-                if "403" in error_str or "Forbidden" in error_str:
-                    raise Exception(
-                        f"Access denied (403 Forbidden). "
-                        f"You need the 'Webex Calling Detailed Call History API access' role. "
-                        f"This role must be assigned by another administrator. "
-                        f"Contact your Webex administrator to assign this role to your account. "
-                        f"Original error: {error_str}"
-                    )
-                elif "401" in error_str or "Unauthorized" in error_str:
-                    raise Exception(
-                        f"Authentication failed. Check your access token and ensure it has the required scopes. "
-                        f"Original error: {error_str}"
-                    )
-                # For non-404 errors, raise immediately
-                raise
+            for param_set in param_variations:
+                try:
+                    response = await self._request("GET", endpoint, params=param_set)
+                    # The API may return items directly or in a data structure
+                    if isinstance(response, list):
+                        return response
+                    elif "items" in response:
+                        return response.get("items", [])
+                    elif "data" in response:
+                        return response.get("data", [])
+                    else:
+                        # Return the full response if structure is unexpected
+                        return [response] if response else []
+                except Exception as e:
+                    last_error = e
+                    last_endpoint = endpoint
+                    error_str = str(e)
+                    # If it's a 400 error about parameters, try next parameter variation
+                    if "400" in error_str and ("parameter" in error_str.lower() or "invalid" in error_str.lower() or "call id" in error_str.lower()):
+                        continue  # Try next parameter variation
+                    # If it's a 404, try the next endpoint
+                    if "404" in error_str or "not found" in error_str.lower():
+                        break  # Break out of param loop, try next endpoint
+                    # For other errors, check if it's auth-related first
+                    if "403" in error_str or "Forbidden" in error_str:
+                        raise Exception(
+                            f"Access denied (403 Forbidden). "
+                            f"You need the 'Webex Calling Detailed Call History API access' role. "
+                            f"This role must be assigned by another administrator. "
+                            f"Contact your Webex administrator to assign this role to your account. "
+                            f"Original error: {error_str}"
+                        )
+                    elif "401" in error_str or "Unauthorized" in error_str:
+                        raise Exception(
+                            f"Authentication failed. Check your access token and ensure it has the required scopes. "
+                            f"Original error: {error_str}"
+                        )
+                    # For other errors, raise immediately
+                    raise
         
         # If all endpoints failed with 404, try with analytics base URL
         analytics_base_url = "https://analytics-calling.webexapis.com/v1"
-        for endpoint in endpoints_to_try:
-            try:
-                # Temporarily use analytics base URL
-                original_base = self.base_url
-                self.base_url = analytics_base_url
-                response = await self._request("GET", endpoint, params=params)
-                # Restore original base URL
-                self.base_url = original_base
-                # The API may return items directly or in a data structure
-                if isinstance(response, list):
-                    return response
-                elif "items" in response:
-                    return response.get("items", [])
-                elif "data" in response:
-                    return response.get("data", [])
-                else:
-                    return [response] if response else []
-            except Exception as e:
-                # Restore original base URL on error
-                self.base_url = original_base
-                error_str = str(e)
-                # If it's a 404, try the next endpoint
-                if "404" in error_str or "not found" in error_str.lower():
-                    continue
-                # For other errors, raise immediately
-                raise
+        original_base = self.base_url
+        try:
+            self.base_url = analytics_base_url
+            for endpoint in endpoints_to_try:
+                for param_set in param_variations:
+                    try:
+                        response = await self._request("GET", endpoint, params=param_set)
+                        # Restore original base URL on success
+                        self.base_url = original_base
+                        # The API may return items directly or in a data structure
+                        if isinstance(response, list):
+                            return response
+                        elif "items" in response:
+                            return response.get("items", [])
+                        elif "data" in response:
+                            return response.get("data", [])
+                        else:
+                            return [response] if response else []
+                    except Exception as e:
+                        error_str = str(e)
+                        # If it's a 400 error about parameters, try next parameter variation
+                        if "400" in error_str and ("parameter" in error_str.lower() or "invalid" in error_str.lower() or "call id" in error_str.lower()):
+                            continue  # Try next parameter variation
+                        # If it's a 404, try the next endpoint
+                        if "404" in error_str or "not found" in error_str.lower():
+                            break  # Break out of param loop, try next endpoint
+                        # For other errors, continue to next variation
+                        continue
+        finally:
+            # Always restore original base URL
+            self.base_url = original_base
         
         # If all endpoints and base URLs failed, provide helpful error
         error_msg = str(last_error) if last_error else "Endpoint not found"
