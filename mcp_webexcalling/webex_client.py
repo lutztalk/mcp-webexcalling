@@ -1401,31 +1401,48 @@ class WebexClient:
         )
         
         # Filter for PSTN calls (external calls, not internal)
+        # Based on actual API response structure with field names like "Call type", "Direction", etc.
         pstn_calls = []
         total_minutes = 0
         total_seconds = 0
         
         for call in call_records:
-            # PSTN calls are typically external calls
-            # Check if call is outgoing to external number or incoming from external
-            call_duration = call.get("duration", 0)  # in seconds
+            # Use actual field names from API response
+            call_duration = call.get("Duration", 0) or call.get("duration", 0)  # in seconds
+            call_type = call.get("Call type", "") or call.get("callType", "") or ""
+            direction = call.get("Direction", "") or call.get("direction", "") or ""
+            calling_line_id = call.get("Calling line ID", "") or call.get("callingLineId", "") or ""
+            called_line_id = call.get("Called line ID", "") or call.get("calledLineId", "") or ""
             
-            # Consider calls that are:
-            # - Outgoing to external numbers (not internal extensions)
-            # - Incoming from external numbers
+            # PSTN calls are typically:
+            # - Call type is PSTN or has PSTN indicators
+            # - Not SIP_ENTERPRISE (internal calls)
             # - Has duration > 0 (completed calls)
-            is_external = call.get("external", False)
-            destination_type = call.get("destinationType", "")
-            origin_type = call.get("originType", "")
-            direction = call.get("direction", "").lower()
+            # - May have external/international indicators
+            is_pstn = False
             
-            # PSTN calls are typically external or have specific indicators
-            if (call_duration > 0 and 
-                (is_external or 
-                 destination_type not in ["internal", "extension"] or
-                 origin_type not in ["internal", "extension"] or
-                 "external" in direction or
-                 call.get("callType", "").lower() in ["pstn", "external"])):
+            # Check call type - PSTN calls typically have PSTN in the type
+            call_type_lower = call_type.upper()
+            if "PSTN" in call_type_lower:
+                is_pstn = True
+            elif "SIP_ENTERPRISE" in call_type_lower or "ENTERPRISE" in call_type_lower:
+                # Internal enterprise calls are not PSTN
+                is_pstn = False
+            elif "TRUNK" in call_type_lower:
+                # Trunk calls are typically PSTN
+                is_pstn = True
+            
+            # Also check if calling/called line IDs indicate external numbers
+            # (e.g., not internal extensions, may have country codes, etc.)
+            if not is_pstn and calling_line_id and called_line_id:
+                # If line IDs are not "NA" and don't look like internal extensions, might be PSTN
+                if calling_line_id != "NA" and called_line_id != "NA":
+                    # Check if they look like phone numbers (have + or country codes)
+                    if "+" in calling_line_id or "+" in called_line_id:
+                        is_pstn = True
+            
+            # Only count completed calls with duration > 0
+            if is_pstn and call_duration > 0:
                 pstn_calls.append(call)
                 total_seconds += call_duration
         
