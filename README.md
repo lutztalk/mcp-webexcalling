@@ -1,6 +1,6 @@
 # MCP Webex Calling Server
 
-An MCP (Model Context Protocol) server that provides comprehensive access to Webex Calling APIs through natural language interactions. This server bridges the gap between AI assistants like Claude and your Webex Calling infrastructure, enabling you to manage your entire calling environment through conversational queries.
+An MCP (Model Context Protocol) server for interacting with Webex Calling APIs. This server enables you to query Webex Calling data and perform administrative functions within your Webex organization through natural language conversations with AI assistants like Claude Desktop.
 
 ## What is MCP?
 
@@ -8,33 +8,23 @@ MCP (Model Context Protocol) is a standardized protocol that allows AI assistant
 
 ## Why Use MCP for Webex Calling?
 
-Webex Calling is a powerful cloud-based calling platform with extensive APIs for managing users, devices, locations, call queues, and more. However, interacting with these APIs typically requires:
+Managing Webex Calling through traditional methods can be time-consuming:
+- **Manual API calls**: Requires understanding complex API documentation and writing code
+- **Web interfaces**: Point-and-click can be slow for bulk operations or repetitive tasks
+- **Scripts**: Need to be written, maintained, and updated for each use case
 
-- Writing custom scripts or applications
-- Understanding complex API documentation
-- Managing authentication and tokens
-- Handling pagination, error handling, and data formatting
+**With MCP, you can:**
+- Ask questions in natural language: *"What call queues do we have configured?"*
+- Get instant answers without writing code
+- Perform administrative tasks through conversation: *"Assign phone number X to user Y"*
+- Access real-time data from your Webex organization
+- Automate workflows through AI assistants
 
-This MCP server eliminates these barriers by:
+This makes Webex Calling management accessible to anyone, regardless of technical expertise.
 
-- **Natural Language Interface**: Ask questions in plain English instead of crafting API calls
-- **Comprehensive Coverage**: Access to 85+ tools covering all major Webex Calling operations
-- **Intelligent Automation**: Let AI assistants handle complex multi-step operations automatically
-- **Real-time Insights**: Get instant answers about your calling infrastructure, call analytics, and user configurations
-- **Unified Management**: Manage users, devices, locations, queues, hunt groups, and more from a single interface
-- **Safe Operations**: Built-in error handling and validation for all API interactions
+## What Can It Do?
 
-## Use Cases
-
-- **Quick Queries**: "What call queues do we have configured?" or "Show me all devices for user john@example.com"
-- **Administrative Tasks**: "Assign phone number X to user Y" or "Create a new call queue called Support"
-- **Analytics & Reporting**: "Get call analytics for last month" or "Show me queue performance metrics"
-- **Troubleshooting**: "What are the calling settings for user X?" or "List all devices at location Y"
-- **Bulk Operations**: "Update extensions for all users in location X" or "List all licenses in the organization"
-- **Voicemail & Recording Management**: "List voicemail messages for user X" or "Get call recordings from the last week"
-- **Device Provisioning**: "Provision device ABC123 for user john@example.com at location Main Office" or "Associate device XYZ789 to user jane@example.com"
-
-## Features
+The MCP Webex Calling server provides **85+ tools** organized into the following categories:
 
 ### Data Retrieval
 - Query Webex Calling users, locations, and organizations
@@ -43,106 +33,71 @@ This MCP server eliminates these barriers by:
 - Query call history and detailed call records
 - List licenses and user assignments
 
-### User & Location Management
+### User Management
 - Create, update, and delete users
+- Manage user extensions and phone numbers
+- Assign and unassign licenses
+- Search for users by name, email, or extension
+
+### Location Management
 - Create, update, and delete locations
-- Update user extensions and calling settings
-- Assign phone numbers to users
-- Manage user calling features (call park, forwarding, voicemail, recording, etc.)
-- Search and filter users by various criteria
-
-### Device Management
-- List and get device details
-- Associate/unassociate devices to users
-- Provision devices with full configuration
-- Activate/deactivate devices
-- Get device associations and status
-- List all devices for a user
-
-### License Management
-- List all licenses in the organization
-- View license details and user assignments
-- Assign and remove licenses from users
+- Manage location settings and configurations
+- List all locations in the organization
 
 ### Call Queue Management
 - Create, update, and delete call queues
-- Add/remove agents from queues
-- List queue agents with skill levels
-- Get queue analytics and performance metrics
+- Manage queue members and settings
+- Configure queue routing and overflow
 
-### Auto Attendant & Hunt Group Management
+### Auto Attendant Management
 - Create, update, and delete auto attendants
-- Configure business schedules and menus
+- Configure menu options and greetings
+- Manage business hours and schedules
+
+### Hunt Group Management
 - Create, update, and delete hunt groups
-- Add/remove members from hunt groups
+- Configure hunt group routing strategies
+- Manage group members
 
-### Phone Number Management
-- List phone numbers and search available numbers
-- Assign/unassign phone numbers to users
-- Assign phone numbers to locations
-
-### Voicemail & Call Recording
-- Get and update voicemail settings
-- List, get, and delete voicemail messages
-- List call recordings and get recording details
+### Device Management
+- List and manage devices
+- Associate devices with users
+- Get device details and configurations
 
 ### Reporting & Analytics
-- Get call detail records (CDRs) for reporting
-- Export call records in CSV/JSON formats
-- Real-time call metrics
-- Generate call analytics and statistics with grouping
-- User-specific call statistics
-- Queue-specific analytics and performance metrics
-- Time-based reporting with flexible date ranges
+- Get call detail records (CDRs)
+- Calculate call statistics (minutes, seconds, call count)
+- Retrieve call analytics and metrics
+- Generate reports for users, locations, or time periods
+
+### Voicemail Management
+- Configure voicemail settings
+- Manage voicemail greetings and notifications
 
 ### Webhook & Event Management
-- List, create, update, and delete webhooks
-- Complete webhook lifecycle management
+- List and manage webhooks
+- Configure event subscriptions
+- Handle real-time notifications
 
-### Advanced Calling Features
-- Call forwarding settings (get/update)
-- Call park settings
-- Simultaneous ring settings (get/update)
+## Use Cases
 
-## Setup
+- **Quick Queries**: "What call queues do we have configured?" or "Show me all devices for user john@example.com"
+- **Administrative Tasks**: "Assign phone number X to user Y" or "Create a new call queue called Support"
+- **Analytics & Reporting**: "Get call analytics for last month" or "Show me queue performance metrics"
+- **Troubleshooting**: "What are the calling settings for user X?" or "List all devices at location Y"
+- **Bulk Operations**: "Update extensions for all users in location X" or "List all licenses in the organization"
 
-See [SETUP.md](SETUP.md) for detailed installation and configuration instructions.
-
-### Quick Start
-
-1. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-2. **Configure environment:**
-   Create a `.env` file with your Webex access token:
-   ```env
-   WEBEX_ACCESS_TOKEN=your_token_here
-   ```
-
-3. **Get Webex access token:**
-   - Go to [Webex Developer Portal](https://developer.webex.com/)
-   - Create a Personal Access Token with required scopes
-
-4. **Run the server:**
-   ```bash
-   python -m mcp_webexcalling.server
-   ```
-
-## Connecting to Claude Desktop
-
-Follow these step-by-step instructions to connect the MCP Webex Calling server to Claude Desktop.
+## Getting Started
 
 ### Prerequisites
 
-- Python 3.9+ installed
-- Claude Desktop installed
-- Webex access token (see [Setup](#setup) above)
+- Python 3.9 or higher
+- Webex access token (see [Configuration](#configuration) below)
+- Claude Desktop (optional, for AI assistant integration)
 
-### Step 1: Install the Server
+### Installation
 
-1. **Clone or download the repository:**
+1. **Clone the repository:**
    ```bash
    git clone https://github.com/lutztalk/mcp-webexcalling.git
    cd mcp-webexcalling
@@ -159,745 +114,243 @@ Follow these step-by-step instructions to connect the MCP Webex Calling server t
    pip install -r requirements.txt
    ```
 
-4. **Install the package (optional but recommended):**
+4. **Install the package:**
    ```bash
    pip install -e .
    ```
 
-### Step 2: Get Your Webex Access Token
+### Configuration
 
-1. Go to [Webex Developer Portal](https://developer.webex.com/)
+#### Getting a Webex Access Token
+
+1. Go to [developer.webex.com](https://developer.webex.com)
 2. Sign in with your Webex account
-3. Click your profile icon → **Personal Access Tokens**
-4. Click **"Create a Token"**
-5. Name it (e.g., "MCP Server")
-6. Copy the token (you won't be able to see it again)
+3. Click on your profile → **Personal Access Tokens**
+4. Click **Generate Token**
+5. Copy the generated token (it will only be shown once)
 
-**Required Scopes:**
-- `spark:people_read` - Read people information
-- `spark-admin:locations_read` - Read location information
-- `spark-admin:organizations_read` - Read organization information
-- `spark-admin:telephony_config_read` - Read calling configuration
-- `spark-admin:read_call_history` - Read call history (optional)
+**Note:** Personal Access Tokens expire after 12 hours. For production use, see [Production Setup](#production-setup) below.
 
-### Step 3: Find Your Python Path
+#### Setting Up Environment Variables
 
-You need the full path to your Python executable. Run this command:
+Create a `.env` file in the project root:
+
+```bash
+WEBEX_ACCESS_TOKEN=your_token_here
+WEBEX_BASE_URL=https://webexapis.com/v1
+```
+
+**Security Note:** Never commit your `.env` file to version control. It's already in `.gitignore`.
+
+### Running the Server
+
+The server can be run directly:
+
+```bash
+python -m mcp_webexcalling.server
+```
+
+Or used with Claude Desktop (see [Connecting to Claude Desktop](#connecting-to-claude-desktop) below).
+
+## Connecting to Claude Desktop
+
+Follow these step-by-step instructions to connect the MCP Webex Calling server to Claude Desktop.
+
+### Prerequisites
+
+- Python 3.9+ installed
+- Claude Desktop installed
+- Webex access token (see [Configuration](#configuration) above)
+
+### Step 1: Find Your Python Path
 
 **macOS/Linux:**
 ```bash
 which python3
-# or if using venv:
+# or
 which python
 ```
 
 **Windows (PowerShell):**
 ```powershell
-where.exe python
-```
-
-**Windows (CMD):**
-```cmd
 where python
 ```
 
-Note the full path (e.g., `/Users/yourname/mcp-webexcalling/venv/bin/python3` or `C:\Users\yourname\mcp-webexcalling\venv\Scripts\python.exe`)
+Note the path (e.g., `/opt/homebrew/bin/python3.12` or `C:\Python312\python.exe`).
 
-### Step 4: Configure Claude Desktop
+### Step 2: Locate Claude Desktop Configuration
 
-1. **Locate the Claude Desktop configuration file:**
+**macOS:**
+```
+~/Library/Application Support/Claude/claude_desktop_config.json
+```
 
-   **macOS:**
-   ```
-   ~/Library/Application Support/Claude/claude_desktop_config.json
-   ```
+**Linux:**
+```
+~/.config/Claude/claude_desktop_config.json
+```
 
-   **Windows:**
-   ```
-   %APPDATA%\Claude\claude_desktop_config.json
-   ```
-   (Typically: `C:\Users\YourName\AppData\Roaming\Claude\claude_desktop_config.json`)
+**Windows:**
+```
+%APPDATA%\Claude\claude_desktop_config.json
+```
 
-   **Linux:**
-   ```
-   ~/.config/Claude/claude_desktop_config.json
-   ```
+### Step 3: Configure Claude Desktop
 
-2. **Open the configuration file in a text editor**
+Edit the configuration file and add the MCP server configuration:
 
-   If the file doesn't exist, create it. If it exists, you'll see a JSON structure like:
-   ```json
-   {
-     "mcpServers": {
-       // existing servers...
-     }
-   }
-   ```
+```json
+{
+  "mcpServers": {
+    "webex-calling": {
+      "command": "/path/to/your/venv/bin/python",
+      "args": ["-m", "mcp_webexcalling.server"],
+      "cwd": "/path/to/mcp-webexcalling",
+      "env": {
+        "WEBEX_ACCESS_TOKEN": "your_token_here",
+        "WEBEX_BASE_URL": "https://webexapis.com/v1"
+      }
+    }
+  }
+}
+```
 
-3. **Add the Webex Calling server configuration:**
+**Important:**
+- Replace `/path/to/your/venv/bin/python` with your actual Python path from Step 1
+- Replace `/path/to/mcp-webexcalling` with the actual path to this project
+- Replace `your_token_here` with your Webex access token
 
-   Replace the following placeholders:
-   - `YOUR_PYTHON_PATH` - The full path to your Python executable from Step 3
-   - `YOUR_PROJECT_PATH` - The full path to the `mcp-webexcalling` directory
-   - `YOUR_WEBEX_TOKEN` - Your Webex access token from Step 2
+### Step 4: Restart Claude Desktop
 
-   **macOS/Linux Example:**
-   ```json
-   {
-     "mcpServers": {
-       "webex-calling": {
-         "command": "/Users/yourname/mcp-webexcalling/venv/bin/python3",
-         "args": ["-m", "mcp_webexcalling.server"],
-         "cwd": "/Users/yourname/mcp-webexcalling",
-         "env": {
-           "WEBEX_ACCESS_TOKEN": "YOUR_WEBEX_TOKEN_HERE",
-           "WEBEX_BASE_URL": "https://webexapis.com/v1"
-         }
-       }
-     }
-   }
-   ```
+Close and reopen Claude Desktop to load the new configuration.
 
-   **Windows Example:**
-   ```json
-   {
-     "mcpServers": {
-       "webex-calling": {
-         "command": "C:\\Users\\YourName\\mcp-webexcalling\\venv\\Scripts\\python.exe",
-         "args": ["-m", "mcp_webexcalling.server"],
-         "cwd": "C:\\Users\\YourName\\mcp-webexcalling",
-         "env": {
-           "WEBEX_ACCESS_TOKEN": "YOUR_WEBEX_TOKEN_HERE",
-           "WEBEX_BASE_URL": "https://webexapis.com/v1"
-         }
-       }
-     }
-   }
-   ```
+### Step 5: Verify Connection
 
-   **Important Notes:**
-   - Use forward slashes `/` on macOS/Linux, backslashes `\\` on Windows
-   - On Windows, escape backslashes in JSON strings as `\\`
-   - Make sure the `cwd` path matches your actual project directory
-   - The `command` should point to the Python executable in your virtual environment
-
-4. **Save the configuration file**
-
-### Step 5: Restart Claude Desktop
-
-1. **Quit Claude Desktop completely:**
-   - macOS: Right-click the Claude icon in the dock → Quit
-   - Windows: Close the application or use Task Manager
-   - Linux: Close the application
-
-2. **Reopen Claude Desktop**
-
-3. **Verify the connection:**
-   - Open a new chat in Claude Desktop
-   - You should see "webex-calling" in the MCP servers list (if visible)
-   - Try asking: "What locations are in my Webex organization?"
-   - If it works, you're connected!
+Open Claude Desktop and check if the server is connected. You should see "webex-calling" in the MCP servers list.
 
 ### Troubleshooting
 
-#### "Server disconnected" Error
+**Server disconnected:**
+- Verify the Python path is correct and points to your virtual environment
+- Check that the `cwd` path is correct
+- Ensure the `.env` file has the correct token (or use the `env` section in the config)
+- Check Claude Desktop logs for error messages
 
-1. **Check Python path:**
-   - Verify the `command` path is correct and points to an executable Python
-   - Try using the full path to `python3.12` or `python3.11` instead of just `python3`
+**Import errors:**
+- Make sure you've installed the package: `pip install -e .`
+- Verify all dependencies are installed: `pip install -r requirements.txt`
 
-2. **Check project path:**
-   - Verify the `cwd` path is correct and points to the project root
-   - Make sure the directory contains `mcp_webexcalling/` folder
+**Permission errors:**
+- Ensure the Python executable has execute permissions
+- Check that the project directory has read permissions
 
-3. **Check dependencies:**
-   - Make sure you've installed requirements: `pip install -r requirements.txt`
-   - Try installing in editable mode: `pip install -e .`
-
-4. **Check token:**
-   - Verify your `WEBEX_ACCESS_TOKEN` is correct
-   - Test the token manually:
-     ```bash
-     curl -H "Authorization: Bearer YOUR_TOKEN" https://webexapis.com/v1/people/me
-     ```
-
-5. **Check logs:**
-   - Look for error messages in Claude Desktop's console/logs
-   - On macOS, check Console.app for Claude Desktop errors
-
-#### "Module not found" Error
-
-1. Make sure you're using the Python from your virtual environment
-2. Reinstall dependencies: `pip install -r requirements.txt`
-3. Install in editable mode: `pip install -e .`
-
-#### Path Issues on Windows
-
-- Use double backslashes `\\` in JSON strings
-- Or use forward slashes `/` (Windows accepts both)
-- Make sure paths don't have trailing slashes
-
-#### Still Having Issues?
-
-1. **Test the server manually:**
-   ```bash
-   cd /path/to/mcp-webexcalling
-   source venv/bin/activate  # or venv\Scripts\activate on Windows
-   python -m mcp_webexcalling.server
-   ```
-   If this works, the server is fine and the issue is with Claude Desktop configuration.
-
-2. **Check the configuration file syntax:**
-   - Use a JSON validator to ensure your config file is valid JSON
-   - Make sure all quotes are properly escaped
-
-3. **Try absolute paths:**
-   - Use full absolute paths for both `command` and `cwd`
-   - Avoid relative paths or `~` shortcuts
-
-For more detailed troubleshooting, see [SETUP.md](SETUP.md).
-
-## Production Setup: Permanent Application Configuration
+## Production Setup
 
 Personal Access Tokens expire after 12 hours, making them unsuitable for production use. This section explains how to set up a permanent Webex Bot or Integration for long-term, production-ready authentication.
 
-### Option A: Webex Bot (Recommended for Production)
+### Option 1: Webex Bot (Recommended)
 
-Webex Bots provide permanent access tokens that don't expire, making them ideal for production deployments.
-
-#### Step 1: Create a Webex Bot
-
-1. **Go to Webex Developer Portal:**
-   - Navigate to [https://developer.webex.com/](https://developer.webex.com/)
-   - Sign in with your Webex account
-
-2. **Create a New Bot:**
-   - Click on **"My Webex Apps"** in the top navigation
-   - Click **"Create a New App"**
-   - Select **"Bot"** from the options
-
-3. **Configure Bot Details:**
-   - **Name**: Enter a name for your bot (e.g., "MCP Webex Calling Bot")
-   - **Username**: Choose a unique username (e.g., "mcp-webexcalling-bot")
-   - **Icon** (optional): Upload an icon for your bot
-   - **Description**: "MCP Server for Webex Calling API integration"
-   - Click **"Add Bot"**
-
-4. **Save Your Bot Token:**
-   - After creation, you'll see a **Bot Access Token**
-   - **IMPORTANT**: Copy this token immediately - you won't be able to see it again
-   - Format: `Bearer Y2lzY29zcGFyazovL3VzL1BFT1BMRS9mNWIzNjE3Ny0xYjNiLTQ5YzUtOTIwZC1mNjYyNzYzYjIzYzM`
-   - Store this securely (you'll use it in Step 2)
-
-5. **Note Bot Information:**
-   - **Bot ID**: Found on the bot's details page
-   - **Bot Email**: `bot-username@webex.bot`
-   - Keep these for reference
-
-#### Step 2: Configure the MCP Server with Bot Token
-
-1. **Update your `.env` file:**
-   ```env
-   WEBEX_ACCESS_TOKEN=Y2lzY29zcGFyazovL3VzL1BFT1BMRS9mNWIzNjE3Ny0xYjNiLTQ5YzUtOTIwZC1mNjYyNzYzYjIzYzM
-   WEBEX_BASE_URL=https://webexapis.com/v1
+1. Go to [developer.webex.com](https://developer.webex.com)
+2. Navigate to **My Apps** → **Bots**
+3. Click **Create a Bot**
+4. Fill in the bot details:
+   - **Name**: Your bot name
+   - **Username**: Unique bot username (e.g., `mcp-webex-calling-bot`)
+   - **Icon**: Optional bot icon
+5. Click **Add Bot**
+6. Copy the **Bot Access Token** (keep it secure!)
+7. Add the bot to a Webex space where it will operate
+8. Use the bot token in your `.env` file:
+   ```
+   WEBEX_ACCESS_TOKEN=your_bot_token_here
    ```
 
-2. **Update Claude Desktop Configuration:**
-   ```json
-   {
-     "mcpServers": {
-       "webex-calling": {
-         "command": "/path/to/venv/bin/python3",
-         "args": ["-m", "mcp_webexcalling.server"],
-         "cwd": "/path/to/mcp-webexcalling",
-         "env": {
-           "WEBEX_ACCESS_TOKEN": "YOUR_BOT_TOKEN_HERE",
-           "WEBEX_BASE_URL": "https://webexapis.com/v1"
-         }
-       }
-     }
-   }
-   ```
+**Benefits:**
+- Token never expires
+- Can be assigned to specific spaces
+- Easy to manage and revoke
 
-#### Step 3: Verify Bot Permissions
+### Option 2: Webex Integration
 
-1. **Check Bot Scopes:**
-   - Bots have limited scopes by default
-   - For Webex Calling API access, you may need admin-level permissions
-   - Contact your Webex administrator to ensure the bot has:
-     - `spark-admin:locations_read`
-     - `spark-admin:organizations_read`
-     - `spark-admin:telephony_config_read`
-     - `spark-admin:read_call_history`
+1. Go to [developer.webex.com](https://developer.webex.com)
+2. Navigate to **My Apps** → **Integrations**
+3. Click **Create an Integration**
+4. Choose **Webex Calling** integration type
+5. Fill in the required OAuth scopes:
+   - `spark-admin:people_read`
+   - `spark-admin:people_write`
+   - `spark-admin:devices_read`
+   - `spark-admin:devices_write`
+   - `spark-admin:telephony_config_read`
+   - `spark-admin:telephony_config_write`
+6. Complete the OAuth flow to get a refresh token
+7. Use the integration credentials in your application
 
-2. **Test Bot Access:**
-   ```bash
-   curl -H "Authorization: Bearer YOUR_BOT_TOKEN" https://webexapis.com/v1/people/me
-   ```
-
-### Option B: Webex Integration (OAuth)
-
-For applications requiring OAuth flow, you can create a Webex Integration instead of a Bot.
-
-#### Step 1: Create a Webex Integration
-
-1. **Go to My Webex Apps:**
-   - Navigate to [https://developer.webex.com/my-apps](https://developer.webex.com/my-apps)
-   - Click **"Create a New App"**
-   - Select **"Integration"**
-
-2. **Configure Integration:**
-   - **Name**: "MCP Webex Calling Integration"
-   - **Description**: "MCP Server for Webex Calling API integration"
-   - **Icon** (optional): Upload an icon
-   - **Redirect URIs**: Add your redirect URI (e.g., `http://localhost:8080/callback`)
-   - Click **"Create Integration"**
-
-3. **Save Credentials:**
-   - **Client ID**: Copy this value
-   - **Client Secret**: Copy this value (you won't see it again)
-   - Store these securely
-
-4. **Configure Scopes:**
-   - Select the required scopes:
-     - `spark:people_read`
-     - `spark-admin:locations_read`
-     - `spark-admin:organizations_read`
-     - `spark-admin:telephony_config_read`
-     - `spark-admin:read_call_history`
-
-#### Step 2: Implement OAuth Flow
-
-1. **Get Authorization URL:**
-   ```
-   https://webexapis.com/v1/authorize?client_id=YOUR_CLIENT_ID&response_type=code&redirect_uri=YOUR_REDIRECT_URI&scope=spark:people_read%20spark-admin:locations_read
-   ```
-
-2. **Complete Authorization:**
-   - Visit the authorization URL in your browser
-   - Sign in and authorize the integration
-   - You'll be redirected with an authorization code
-
-3. **Exchange Code for Token:**
-   ```bash
-   curl -X POST https://webexapis.com/v1/access_token \
-     -H "Content-Type: application/x-www-form-urlencoded" \
-     -d "grant_type=authorization_code" \
-     -d "client_id=YOUR_CLIENT_ID" \
-     -d "client_secret=YOUR_CLIENT_SECRET" \
-     -d "code=AUTHORIZATION_CODE" \
-     -d "redirect_uri=YOUR_REDIRECT_URI"
-   ```
-
-4. **Use Refresh Token:**
-   - Save the `refresh_token` from the response
-   - Use it to refresh access tokens when they expire
-   - Access tokens typically expire after 14 days
-
-### Bot vs Integration: Which to Choose?
-
-- **Use a Bot** if:
-  - You need a permanent, non-expiring token
-  - You're building a service/daemon that runs continuously
-  - You don't need user-specific OAuth flows
-  - You have admin permissions to grant bot access
-
-- **Use an Integration** if:
-  - You need user-specific authentication
-  - You're building a multi-tenant application
-  - You need to refresh tokens programmatically
-  - You want to support multiple users
-
-For most MCP server deployments, a **Bot** is recommended for simplicity and permanence.
+**Benefits:**
+- More granular permissions
+- Better for enterprise deployments
+- Supports OAuth refresh tokens
 
 ## GitHub Actions Integration: Webex Notifications
 
 Set up automated notifications to a Webex space whenever code is pushed to the main branch using GitHub Actions.
 
-### Prerequisites
+### Setup
 
-- A Webex Bot created (see [Production Setup](#production-setup-permanent-application-configuration) above)
-- A Webex Space where you want to receive notifications
-- Admin access to your GitHub repository
+1. **Create a Webex Bot** (see [Production Setup](#production-setup) above)
+2. **Get the Bot Token and Room ID:**
+   - Bot Token: From the bot creation page
+   - Room ID: Right-click the Webex space → **Copy Link** → Extract the room ID from the URL
+3. **Add GitHub Secrets:**
+   - Go to your repository → **Settings** → **Secrets and variables** → **Actions**
+   - Add secret: `WEBEX_BOT_TOKEN` (your bot token)
+   - Add secret: `WEBEX_ROOM_ID` (your room ID)
+4. **The workflow is already configured** in `.github/workflows/webex-notifications.yml`
 
-### Step 1: Create a Webex Space and Add Your Bot
-
-1. **Create or Open a Webex Space:**
-   - Open Webex and create a new space (or use an existing one)
-   - Name it something like "GitHub Notifications" or "MCP Webex Calling Updates"
-
-2. **Add Your Bot to the Space:**
-   - In the space, click the space name at the top
-   - Click **"People"** or **"Members"**
-   - Click **"Add People"**
-   - Search for your bot by username (e.g., `mcp-webexcalling-bot@webex.bot`)
-   - Add the bot to the space
-
-3. **Get the Space Room ID:**
-   - In the Webex space, click the space name at the top
-   - Click **"Integrations"** or **"Apps"**
-   - Look for the Room ID (or use the Webex API):
-     ```bash
-     curl -H "Authorization: Bearer YOUR_BOT_TOKEN" \
-          https://webexapis.com/v1/rooms
-     ```
-   - Find your space in the response and note the `id` field
-   - This is your **Room ID** (format: `Y2lzY29zcGFyazovL3VzL1JPT00vOTQ5NGQ4YzAtY2Y5Ny0xMWViLWEyZGMt...`)
-
-### Step 2: Configure GitHub Secrets
-
-1. **Go to Your GitHub Repository:**
-   - Navigate to `https://github.com/yourusername/mcp-webexcalling`
-   - Click on **"Settings"** tab
-
-2. **Add Repository Secrets:**
-   - Click **"Secrets and variables"** → **"Actions"**
-   - Click **"New repository secret"**
-
-3. **Add Two Secrets:**
-   
-   **Secret 1: `WEBEX_BOT_TOKEN`**
-   - **Name**: `WEBEX_BOT_TOKEN`
-   - **Value**: Your bot's access token (from Step 1 of Bot setup)
-   - Click **"Add secret"**
-
-   **Secret 2: `WEBEX_ROOM_ID`**
-   - **Name**: `WEBEX_ROOM_ID`
-   - **Value**: The Room ID from Step 1 above
-   - Click **"Add secret"**
-
-### Step 3: Create GitHub Actions Workflow
-
-1. **Create Workflow Directory:**
-   ```bash
-   mkdir -p .github/workflows
-   ```
-
-2. **Create Workflow File:**
-   Create `.github/workflows/webex-notifications.yml`:
-   ```yaml
-   name: Webex Notifications
-
-   on:
-     push:
-       branches:
-         - main
-     pull_request:
-       types: [opened, closed, merged]
-
-   jobs:
-     notify:
-       runs-on: ubuntu-latest
-       steps:
-         - name: Send Webex Notification
-           uses: docker://webex/webex-teams-bot-action:latest
-           with:
-             access_token: ${{ secrets.WEBEX_BOT_TOKEN }}
-             room_id: ${{ secrets.WEBEX_ROOM_ID }}
-             message: |
-               🚀 **New Changes Pushed to Repository**
-               
-               **Repository:** ${{ github.repository }}
-               **Branch:** ${{ github.ref_name }}
-               **Author:** ${{ github.actor }}
-               **Commit:** ${{ github.sha }}
-               **Message:** ${{ github.event.head_commit.message }}
-               
-               **View Changes:**
-               🔗 ${{ github.event.head_commit.url }}
-   ```
-
-   **Alternative: Using curl (more flexible):**
-   ```yaml
-   name: Webex Notifications
-
-   on:
-     push:
-       branches:
-         - main
-
-   jobs:
-     notify:
-       runs-on: ubuntu-latest
-       steps:
-         - name: Send Webex Notification
-           run: |
-             curl -X POST https://webexapis.com/v1/messages \
-               -H "Authorization: Bearer ${{ secrets.WEBEX_BOT_TOKEN }}" \
-               -H "Content-Type: application/json" \
-               -d '{
-                 "roomId": "${{ secrets.WEBEX_ROOM_ID }}",
-                 "markdown": "🚀 **New Changes Pushed**\n\n**Repository:** ${{ github.repository }}\n**Branch:** ${{ github.ref_name }}\n**Author:** ${{ github.actor }}\n**Commit:** `${{ github.sha }}`\n**Message:** ${{ github.event.head_commit.message }}\n\n🔗 [View Changes](${{ github.event.head_commit.url }})"
-               }'
-   ```
-
-3. **Commit and Push:**
-   ```bash
-   git add .github/workflows/webex-notifications.yml
-   git commit -m "Add GitHub Actions workflow for Webex notifications"
-   git push origin main
-   ```
-
-### Step 4: Test the Integration
-
-1. **Make a Test Change:**
-   ```bash
-   echo "# Test" >> README.md
-   git add README.md
-   git commit -m "Test Webex notification"
-   git push origin main
-   ```
-
-2. **Check Webex Space:**
-   - Within a few seconds, you should see a notification in your Webex space
-   - The message will include repository info, commit details, and a link
-
-### Step 5: Customize Notification Messages
-
-You can customize the notification message in the workflow file. Here are some useful GitHub context variables:
-
-- `${{ github.repository }}` - Repository name (e.g., "lutztalk/mcp-webexcalling")
-- `${{ github.ref_name }}` - Branch or tag name
-- `${{ github.actor }}` - Username who triggered the workflow
-- `${{ github.sha }}` - Commit SHA
-- `${{ github.event.head_commit.message }}` - Commit message
-- `${{ github.event.head_commit.url }}` - Commit URL
-- `${{ github.event.head_commit.author.name }}` - Commit author name
-- `${{ github.event.pull_request.title }}` - PR title (for PR events)
-
-### Troubleshooting
-
-#### No Notification Received
-
-1. **Check GitHub Actions:**
-   - Go to your repository → **"Actions"** tab
-   - Look for the workflow run
-   - Check if it completed successfully or failed
-
-2. **Verify Secrets:**
-   - Go to **Settings** → **Secrets and variables** → **Actions**
-   - Ensure both `WEBEX_BOT_TOKEN` and `WEBEX_ROOM_ID` are set correctly
-
-3. **Check Bot Token:**
-   ```bash
-   curl -H "Authorization: Bearer YOUR_BOT_TOKEN" https://webexapis.com/v1/people/me
-   ```
-   Should return bot information
-
-4. **Verify Bot is in Space:**
-   - Check that your bot is a member of the Webex space
-   - Ensure the Room ID matches the space
-
-5. **Check Workflow Logs:**
-   - Click on the failed workflow run
-   - Check the logs for error messages
-
-#### Bot Token Invalid
-
-- Bot tokens don't expire, but they can be regenerated
-- If you regenerate a bot token, update the GitHub secret
-- Ensure you're using the bot token, not a personal access token
-
-#### Room ID Not Found
-
-- Verify the Room ID is correct
-- Use the Webex API to list rooms:
-  ```bash
-  curl -H "Authorization: Bearer YOUR_BOT_TOKEN" https://webexapis.com/v1/rooms
-  ```
-
-## Configuration
-
-The server uses environment variables for configuration:
-
-- `WEBEX_ACCESS_TOKEN`: Your Webex API access token (required)
-- `WEBEX_BASE_URL`: Webex API base URL (default: https://webexapis.com/v1)
+The workflow will automatically send notifications when code is pushed to `main`.
 
 ## Available Tools
 
-The server provides **85 MCP tools** organized by category:
-
-### Organization & Location Tools
-- `get_organization_info` - Get information about your Webex organization
-- `list_locations` - List all locations in your organization
-- `get_location_details` - Get detailed information about a specific location
-- `get_location_features` - Get available features for a location
-- `create_location` - Create a new location
-- `update_location` - Update a location
-- `delete_location` - Delete a location
-
-### User Management Tools
-- `list_users` - List users in your organization
-- `get_user_details` - Get detailed information about a specific user
-- `get_user_by_email` - Get user information by email address
-- `get_user_calling_settings` - Get calling settings for a user
-- `search_users` - Search for users by email or display name
-- `create_user` - Create a new user
-- `update_user` - Update a user
-- `delete_user` - Delete a user
-
-### User Extension & Feature Management
-- `update_user_extension` - Update user extension and calling settings
-- `assign_phone_number_to_user` - Assign a phone number to a user
-- `update_user_calling_features` - Update calling features (park, forwarding, voicemail, etc.)
-
-### License Management Tools
-- `list_licenses` - List all licenses in your organization
-- `get_license_details` - Get details about a specific license
-- `list_user_licenses` - List licenses assigned to a user
-- `assign_license_to_user` - Assign a license to a user
-- `remove_license_from_user` - Remove a license from a user
-
-### Device Management Tools
-- `list_devices` - List devices in your organization
-- `get_device_details` - Get details about a specific device
-- `associate_device_to_user` - Associate a device to a user
-- `unassociate_device` - Unassociate a device from a user
-- `provision_device` - Provision a device for a user
-- `activate_device` - Activate a device
-- `deactivate_device` - Deactivate a device
-- `get_device_associations` - Get device associations and status
-- `list_user_devices` - List all devices associated with a user
-
-### Phone Number Tools
-- `list_phone_numbers` - List phone numbers in your organization
-- `get_phone_number_details` - Get details about a specific phone number
-- `unassign_phone_number` - Unassign a phone number from a user
-- `assign_phone_number_to_location` - Assign a phone number to a location
-- `search_available_phone_numbers` - Search for available phone numbers
-
-### Call Queue Management Tools
-- `list_call_queues` - List all call queues
-- `get_call_queue_details` - Get details about a specific call queue
-- `create_call_queue` - Create a new call queue
-- `update_call_queue` - Update a call queue
-- `delete_call_queue` - Delete a call queue
-- `add_agent_to_queue` - Add an agent to a call queue
-- `remove_agent_from_queue` - Remove an agent from a call queue
-- `list_queue_agents` - List all agents in a call queue
-
-### Auto Attendant Tools
-- `list_auto_attendants` - List all auto attendants
-- `get_auto_attendant_details` - Get details about a specific auto attendant
-- `create_auto_attendant` - Create a new auto attendant
-- `update_auto_attendant` - Update an auto attendant
-- `delete_auto_attendant` - Delete an auto attendant
-
-### Hunt Group Tools
-- `list_hunt_groups` - List hunt groups in your organization
-- `get_hunt_group_details` - Get details about a specific hunt group
-- `create_hunt_group` - Create a new hunt group
-- `update_hunt_group` - Update a hunt group
-- `delete_hunt_group` - Delete a hunt group
-- `add_member_to_hunt_group` - Add a member to a hunt group
-- `remove_member_from_hunt_group` - Remove a member from a hunt group
-
-### Additional Group Tools
-- `list_trunk_groups` - List trunk groups in your organization
-- `get_trunk_group_details` - Get details about a specific trunk group
-- `list_call_park_extensions` - List call park extensions
-
-### Voicemail Management Tools
-- `get_user_voicemail_settings` - Get voicemail settings for a user
-- `update_user_voicemail_settings` - Update voicemail settings for a user
-- `list_voicemail_messages` - List voicemail messages for a user
-- `get_voicemail_message` - Get a specific voicemail message
-- `delete_voicemail_message` - Delete a voicemail message
-
-### Call Recording Tools
-- `list_call_recordings` - List call recordings
-- `get_call_recording` - Get details about a call recording
-
-### Reporting & Analytics Tools
-- `get_call_history` - Get call history for a user or location
-- `get_call_detail_records` - Get call detail records (CDRs) for reporting
-- `get_call_analytics` - Get call analytics and statistics for a time period
-- `get_queue_analytics` - Get analytics for a specific call queue
-- `export_call_records` - Export call records in various formats
-- `get_real_time_call_metrics` - Get real-time call metrics
-- `get_call_statistics` - Get detailed call statistics with grouping
-- `get_user_call_statistics` - Get call statistics for a specific user
-
-### Webhook Management Tools
-- `list_webhooks` - List all webhooks
-- `create_webhook` - Create a webhook
-- `get_webhook_details` - Get webhook details
-- `update_webhook` - Update a webhook
-- `delete_webhook` - Delete a webhook
-
-### Advanced Calling Features
-- `get_call_forwarding_settings` - Get call forwarding settings for a user
-- `update_call_forwarding_settings` - Update call forwarding settings
-- `get_call_park_settings` - Get call park settings for a user
-- `get_simultaneous_ring_settings` - Get simultaneous ring settings for a user
-- `update_simultaneous_ring_settings` - Update simultaneous ring settings
+The server provides **85+ MCP tools** organized by category. See the full list in the [What Can It Do?](#what-can-it-do) section above.
 
 ## Example Usage
 
-Once connected to an MCP client, you can ask questions like:
+### Through Claude Desktop
 
-### Data Queries
-- "What locations are in my Webex organization?"
-- "Show me the details for user john.doe@example.com"
-- "What call queues do we have configured?"
-- "List all devices in the organization"
-- "Show me all phone numbers at location X"
+Once connected, you can ask questions like:
 
-### User & Location Management
-- "Create a new user with email john.doe@example.com"
-- "Update user john.doe@example.com extension to 1234"
-- "Assign phone number ID xyz to user jane.smith@example.com"
-- "Create a new location called Main Office"
-- "Delete location ID xyz"
+- *"Show me all call queues in the organization"*
+- *"Get call statistics for the last 24 hours"*
+- *"List all users at location X"*
+- *"Create a new call queue called Support"*
+- *"Assign phone number +1234567890 to user john@example.com"*
 
-### Device Management
-- "Associate device ID xyz to user john.doe@example.com"
-- "Provision device ID xyz for user jane.smith@example.com at location abc"
-- "List all devices for user bob@example.com"
-- "Get device associations for device ID xyz"
+### Direct API Usage
 
-### License Management
-- "List all licenses in the organization"
-- "What licenses does user john.doe@example.com have?"
-- "Assign license ID xyz to user jane.smith@example.com"
-- "Remove license ID xyz from user bob@example.com"
+You can also use the client directly in Python:
 
-### Queue & Group Management
-- "Create a new call queue called Support"
-- "Add agent jane.smith@example.com to queue ID xyz"
-- "Create a new auto attendant for after-hours"
-- "Add member bob@example.com to hunt group ID xyz"
+```python
+from mcp_webexcalling.webex_client import WebexClient
 
-### Reporting & Analytics
-- "Show me call history for the last week"
-- "Get call analytics for January 2024"
-- "Export call records for the last month as CSV"
-- "Get real-time call metrics for location ID xyz"
-- "Show me queue analytics for queue ID xyz for the last month"
-- "Get call statistics grouped by user for January 2024"
+client = WebexClient(access_token="your_token")
 
-### Voicemail & Recordings
-- "List voicemail messages for user john.doe@example.com"
-- "Get voicemail settings for user jane.smith@example.com"
-- "List call recordings from the last week"
+# Get organization info
+org_info = await client.get_organization_info()
 
-For detailed usage examples and tool documentation, see [USAGE.md](USAGE.md).
+# Get call queues
+queues = await client.list_call_queues()
 
-## Testing
-
-Test the Webex client directly:
-
-```bash
-python examples/basic_usage.py
+# Get call statistics
+stats = await client.get_call_statistics_from_cdr(
+    start_time="2024-01-01T00:00:00Z",
+    end_time="2024-01-31T23:59:59Z"
+)
 ```
 
-## API Documentation
+## Contributing
 
-For detailed information about Webex Calling APIs, see:
-- [Webex Calling API Documentation](https://developer.cisco.com/docs/webex-calling/)
-- [Webex Admin API Documentation](https://developer.webex.com/docs/api/v1)
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-MIT
-
+This project is licensed under the MIT License.
