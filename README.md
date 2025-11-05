@@ -63,6 +63,8 @@ The MCP Webex Calling server provides **85+ tools** organized into the following
 - List and manage devices
 - Associate devices with users
 - Get device details and configurations
+- Generate activation codes for device registration (no MAC address required)
+- Create/provision devices by MAC address and model
 
 ### Reporting & Analytics
 - Get call detail records (CDRs)
@@ -83,9 +85,43 @@ The MCP Webex Calling server provides **85+ tools** organized into the following
 
 - **Quick Queries**: "What call queues do we have configured?" or "Show me all devices for user john@example.com"
 - **Administrative Tasks**: "Assign phone number X to user Y" or "Create a new call queue called Support"
+- **Device Provisioning**: "Generate an activation code for user john@example.com" or "Create a device with MAC address AABBCCDDEEFF"
 - **Analytics & Reporting**: "Get call analytics for last month" or "Show me queue performance metrics"
 - **Troubleshooting**: "What are the calling settings for user X?" or "List all devices at location Y"
 - **Bulk Operations**: "Update extensions for all users in location X" or "List all licenses in the organization"
+
+## Device Management
+
+The server provides two methods for device provisioning:
+
+### Activation Code Method (Recommended)
+
+The simplest way to provision a device is by generating an activation code. This method requires only the user's person ID and doesn't need a MAC address:
+
+1. **Generate an activation code** for the user
+2. **Provide the code to the user** - they enter it on their device during setup
+3. The device automatically registers and associates with their account
+
+**Example:**
+- *"Generate an activation code for user john@example.com"*
+
+The activation code expires after a set period (typically several months), so users have plenty of time to set up their devices.
+
+### MAC Address Method
+
+For devices where you know the MAC address in advance, you can create the device entry directly:
+
+1. **Create the device** using MAC address and model
+2. **Associate the device** with a user (optional, can be done later)
+3. The device will be ready for registration
+
+**Example:**
+- *"Create a device with MAC address AABBCCDDEEFF and model Cisco 8841"*
+
+**MAC Address Format:**
+- Accepts 12-digit hexadecimal format (e.g., `AABBCCDDEEFF`)
+- Also accepts colon or dash separators (e.g., `AA:BB:CC:DD:EE:FF` or `AA-BB-CC-DD-EE-FF`)
+- Automatically normalizes to uppercase format
 
 ## Getting Started
 
@@ -324,6 +360,8 @@ Once connected, you can ask questions like:
 - *"List all users at location X"*
 - *"Create a new call queue called Support"*
 - *"Assign phone number +1234567890 to user john@example.com"*
+- *"Generate an activation code for user john@example.com"*
+- *"Create a device with MAC address AABBCCDDEEFF and model Cisco 8841"*
 
 ### Direct API Usage
 
@@ -344,6 +382,17 @@ queues = await client.list_call_queues()
 stats = await client.get_call_statistics_from_cdr(
     start_time="2024-01-01T00:00:00Z",
     end_time="2024-01-31T23:59:59Z"
+)
+
+# Generate activation code for a user
+activation_code = await client.generate_activation_code(person_id="user_id_here")
+print(f"Activation code: {activation_code['code']}")
+print(f"Expires: {activation_code['expiryTime']}")
+
+# Create a device by MAC address
+device = await client.create_device_by_mac(
+    mac_address="AABBCCDDEEFF",
+    model="Cisco 8841"
 )
 ```
 
