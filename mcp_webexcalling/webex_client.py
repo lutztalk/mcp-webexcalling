@@ -42,8 +42,12 @@ class WebexClient:
             except httpx.HTTPStatusError as e:
                 # Provide detailed error information
                 error_msg = f"HTTP {e.response.status_code} error for {method} {endpoint}"
+                
+                # Try to get full error details from response
                 try:
                     error_body = e.response.json()
+                    # Include full error body for debugging
+                    full_error = str(error_body)
                     if "message" in error_body:
                         error_msg += f": {error_body['message']}"
                     elif "errors" in error_body:
@@ -52,8 +56,20 @@ class WebexClient:
                         error_msg += f": {error_body['error']}"
                     elif "description" in error_body:
                         error_msg += f": {error_body['description']}"
+                    else:
+                        # Include full error body if no standard fields found
+                        error_msg += f": {full_error[:500]}"
                 except:
-                    error_msg += f": {e.response.text[:200]}"
+                    error_msg += f": {e.response.text[:500]}"
+                
+                # For 400 errors, include the actual request URL and params for debugging
+                if e.response.status_code == 400:
+                    import urllib.parse
+                    if params:
+                        query_string = urllib.parse.urlencode(params)
+                        error_msg += f"\n   Request URL: {url}?{query_string}"
+                    else:
+                        error_msg += f"\n   Request URL: {url}"
                 
                 # Provide helpful context for common errors
                 if e.response.status_code == 400:
@@ -413,12 +429,12 @@ class WebexClient:
         # The API expects ISO 8601 format dates in UTC
         # Format dates properly - ensure they're strings in correct format
         
-        def format_date_for_api(date_val, format_type='iso'):
+        def format_date_for_api(date_val, format_type='iso_ms'):
             """Format date for API - handles both string and datetime objects
             
             format_type options:
+            - 'iso_ms': ISO 8601 with actual milliseconds (YYYY-MM-DDTHH:MM:SS.mmmZ) - PREFERRED
             - 'iso': ISO 8601 without milliseconds (YYYY-MM-DDTHH:MM:SSZ)
-            - 'iso_ms': ISO 8601 with milliseconds (YYYY-MM-DDTHH:MM:SS.000Z)
             - 'epoch': Unix epoch timestamp in milliseconds
             """
             from datetime import datetime, timezone
@@ -431,22 +447,30 @@ class WebexClient:
                 try:
                     # Try parsing as ISO 8601
                     if 'T' in cleaned:
-                        # Remove timezone info for parsing
-                        clean_for_parse = cleaned.replace('Z', '+00:00').replace('.000', '')
-                        if '+' in clean_for_parse or '-' in clean_for_parse[-6:]:
-                            dt = datetime.fromisoformat(clean_for_parse.replace('Z', '+00:00'))
+                        # Parse ISO format with or without milliseconds
+                        if '.' in cleaned and 'Z' in cleaned:
+                            # Has milliseconds: 2022-06-09T23:27:18.604Z
+                            dt_str = cleaned.replace('Z', '+00:00')
+                            dt = datetime.fromisoformat(dt_str)
+                        elif 'Z' in cleaned:
+                            # No milliseconds: 2022-06-09T23:27:18Z
+                            dt_str = cleaned.replace('Z', '+00:00')
+                            dt = datetime.fromisoformat(dt_str)
+                        elif '+' in cleaned or '-' in cleaned[-6:]:
+                            dt = datetime.fromisoformat(cleaned)
                         else:
-                            dt = datetime.fromisoformat(clean_for_parse)
+                            dt = datetime.fromisoformat(cleaned)
                             dt = dt.replace(tzinfo=timezone.utc)
                     else:
                         # Try other formats
                         dt = datetime.fromisoformat(cleaned)
                         if dt.tzinfo is None:
                             dt = dt.replace(tzinfo=timezone.utc)
-                except:
-                    # If parsing fails, return cleaned string
+                except Exception as e:
+                    # If parsing fails, try to clean and return
                     if cleaned.endswith(".000Z"):
                         cleaned = cleaned.replace(".000Z", "Z")
+                    # If still can't parse, return as-is
                     return cleaned
             else:
                 # Already a datetime object
@@ -455,32 +479,37 @@ class WebexClient:
                     dt = dt.replace(tzinfo=timezone.utc)
             
             # Format based on requested type
-            if format_type == 'iso':
+            if format_type == 'iso_ms':
+                # Include actual milliseconds (3 digits) - API expects this format
+                # Format: YYYY-MM-DDTHH:MM:SS.mmmZ
+                milliseconds = dt.microsecond // 1000  # Convert microseconds to milliseconds
+                return dt.strftime(f"%Y-%m-%dT%H:%M:%S.{milliseconds:03d}Z")
+            elif format_type == 'iso':
                 return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-            elif format_type == 'iso_ms':
-                return dt.strftime("%Y-%m-%dT%H:%M:%S.000Z")
             elif format_type == 'epoch':
                 # Return epoch timestamp in milliseconds
                 return str(int(dt.timestamp() * 1000))
             else:
                 return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
         
-        # Try different date formats - ISO without milliseconds is most common
-        start_time_iso = format_date_for_api(start_time, format_type='iso')
-        end_time_iso = format_date_for_api(end_time, format_type='iso')
-        
-        # Also create variations for trying
+        # API expects dates with actual milliseconds (not .000, but real millisecond values)
+        # Example from API docs: 2022-06-09T23:27:18.604Z
+        # Try with milliseconds first (this is what the API expects based on the screenshot)
         start_time_iso_ms = format_date_for_api(start_time, format_type='iso_ms')
         end_time_iso_ms = format_date_for_api(end_time, format_type='iso_ms')
         
-        # Try epoch timestamps as fallback
+        # Also try without milliseconds as fallback
+        start_time_iso = format_date_for_api(start_time, format_type='iso')
+        end_time_iso = format_date_for_api(end_time, format_type='iso')
+        
+        # Try epoch timestamps as last resort
         start_time_epoch = format_date_for_api(start_time, format_type='epoch')
         end_time_epoch = format_date_for_api(end_time, format_type='epoch')
         
-        # Build base parameters (using ISO format without milliseconds)
+        # Build base parameters (using ISO format WITH milliseconds - API expects this)
         base_params = {
-            "startTime": start_time_iso,
-            "endTime": end_time_iso,
+            "startTime": start_time_iso_ms,
+            "endTime": end_time_iso_ms,
         }
         
         # Optional filters
@@ -492,28 +521,29 @@ class WebexClient:
             base_params["max"] = max_results
         
         # Try different parameter variations
+        # Based on API screenshot, dates should have actual milliseconds (e.g., 2022-06-09T23:27:18.604Z)
         param_variations = [
-            # 1. Minimal parameters with ISO format (no milliseconds) - try this first
-            {
-                "startTime": start_time_iso,
-                "endTime": end_time_iso,
-            },
-            # 2. ISO format with milliseconds
+            # 1. Minimal parameters with ISO format WITH milliseconds (API expects this) - try this first
             {
                 "startTime": start_time_iso_ms,
                 "endTime": end_time_iso_ms,
             },
-            # 3. Epoch timestamps (in case API expects epoch)
+            # 2. ISO format without milliseconds (fallback)
+            {
+                "startTime": start_time_iso,
+                "endTime": end_time_iso,
+            },
+            # 3. Standard format with all parameters (ISO with ms)
+            base_params.copy(),
+            # 4. Without max parameter
+            {k: v for k, v in base_params.items() if k != "max"},
+            # 5. Without location parameter
+            {k: v for k, v in base_params.items() if k != "locations"},
+            # 6. Epoch timestamps (last resort)
             {
                 "startTime": start_time_epoch,
                 "endTime": end_time_epoch,
             },
-            # 4. Standard format with all parameters (ISO no ms)
-            base_params.copy(),
-            # 5. Without max parameter
-            {k: v for k, v in base_params.items() if k != "max"},
-            # 6. Without location parameter
-            {k: v for k, v in base_params.items() if k != "locations"},
         ]
         
         # Note: person_id is not directly supported by /cdr_feed endpoint
