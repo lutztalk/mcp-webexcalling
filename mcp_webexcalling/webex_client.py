@@ -413,47 +413,74 @@ class WebexClient:
         # The API expects ISO 8601 format dates in UTC
         # Format dates properly - ensure they're strings in correct format
         
-        def format_date_for_api(date_val, with_milliseconds=False):
-            """Format date for API - handles both string and datetime objects"""
+        def format_date_for_api(date_val, format_type='iso'):
+            """Format date for API - handles both string and datetime objects
+            
+            format_type options:
+            - 'iso': ISO 8601 without milliseconds (YYYY-MM-DDTHH:MM:SSZ)
+            - 'iso_ms': ISO 8601 with milliseconds (YYYY-MM-DDTHH:MM:SS.000Z)
+            - 'epoch': Unix epoch timestamp in milliseconds
+            """
+            from datetime import datetime, timezone
+            
             if isinstance(date_val, str):
                 # If it's already a string, validate and clean it
                 cleaned = date_val.strip()
-                # Remove any .000 if present
-                if cleaned.endswith(".000Z"):
-                    cleaned = cleaned.replace(".000Z", "Z")
-                elif cleaned.endswith(".000+00:00"):
-                    cleaned = cleaned.replace(".000+00:00", "Z")
-                # Ensure Z suffix for UTC
-                if not cleaned.endswith("Z") and not cleaned.endswith("+00:00"):
-                    if "+" not in cleaned and "-" not in cleaned[-6:]:
-                        cleaned = cleaned + "Z"
-                return cleaned
-            else:
-                # Format datetime object to ISO 8601
-                from datetime import timezone
-                if hasattr(date_val, 'strftime'):
-                    # Ensure it's timezone-aware
-                    if date_val.tzinfo is None:
-                        date_val = date_val.replace(tzinfo=timezone.utc)
-                    # Format based on preference
-                    if with_milliseconds:
-                        return date_val.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+                
+                # Convert to datetime first for consistent handling
+                try:
+                    # Try parsing as ISO 8601
+                    if 'T' in cleaned:
+                        # Remove timezone info for parsing
+                        clean_for_parse = cleaned.replace('Z', '+00:00').replace('.000', '')
+                        if '+' in clean_for_parse or '-' in clean_for_parse[-6:]:
+                            dt = datetime.fromisoformat(clean_for_parse.replace('Z', '+00:00'))
+                        else:
+                            dt = datetime.fromisoformat(clean_for_parse)
+                            dt = dt.replace(tzinfo=timezone.utc)
                     else:
-                        return date_val.strftime("%Y-%m-%dT%H:%M:%SZ")
-            return str(date_val)
+                        # Try other formats
+                        dt = datetime.fromisoformat(cleaned)
+                        if dt.tzinfo is None:
+                            dt = dt.replace(tzinfo=timezone.utc)
+                except:
+                    # If parsing fails, return cleaned string
+                    if cleaned.endswith(".000Z"):
+                        cleaned = cleaned.replace(".000Z", "Z")
+                    return cleaned
+            else:
+                # Already a datetime object
+                dt = date_val
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+            
+            # Format based on requested type
+            if format_type == 'iso':
+                return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+            elif format_type == 'iso_ms':
+                return dt.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+            elif format_type == 'epoch':
+                # Return epoch timestamp in milliseconds
+                return str(int(dt.timestamp() * 1000))
+            else:
+                return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
         
-        # Try without milliseconds first (most APIs prefer this)
-        start_time_formatted = format_date_for_api(start_time, with_milliseconds=False)
-        end_time_formatted = format_date_for_api(end_time, with_milliseconds=False)
+        # Try different date formats - ISO without milliseconds is most common
+        start_time_iso = format_date_for_api(start_time, format_type='iso')
+        end_time_iso = format_date_for_api(end_time, format_type='iso')
         
         # Also create variations for trying
-        start_time_with_ms = format_date_for_api(start_time, with_milliseconds=True)
-        end_time_with_ms = format_date_for_api(end_time, with_milliseconds=True)
+        start_time_iso_ms = format_date_for_api(start_time, format_type='iso_ms')
+        end_time_iso_ms = format_date_for_api(end_time, format_type='iso_ms')
         
-        # Build base parameters
+        # Try epoch timestamps as fallback
+        start_time_epoch = format_date_for_api(start_time, format_type='epoch')
+        end_time_epoch = format_date_for_api(end_time, format_type='epoch')
+        
+        # Build base parameters (using ISO format without milliseconds)
         base_params = {
-            "startTime": start_time_formatted,
-            "endTime": end_time_formatted,
+            "startTime": start_time_iso,
+            "endTime": end_time_iso,
         }
         
         # Optional filters
@@ -466,21 +493,26 @@ class WebexClient:
         
         # Try different parameter variations
         param_variations = [
-            # 1. Minimal parameters (only startTime and endTime) - try this first
+            # 1. Minimal parameters with ISO format (no milliseconds) - try this first
             {
-                "startTime": start_time_formatted,
-                "endTime": end_time_formatted,
+                "startTime": start_time_iso,
+                "endTime": end_time_iso,
             },
-            # 2. With dates including milliseconds
+            # 2. ISO format with milliseconds
             {
-                "startTime": start_time_with_ms,
-                "endTime": end_time_with_ms,
+                "startTime": start_time_iso_ms,
+                "endTime": end_time_iso_ms,
             },
-            # 3. Standard format with all parameters
+            # 3. Epoch timestamps (in case API expects epoch)
+            {
+                "startTime": start_time_epoch,
+                "endTime": end_time_epoch,
+            },
+            # 4. Standard format with all parameters (ISO no ms)
             base_params.copy(),
-            # 4. Without max parameter (in case it causes issues)
+            # 5. Without max parameter
             {k: v for k, v in base_params.items() if k != "max"},
-            # 5. Without location parameter (in case it causes issues)
+            # 6. Without location parameter
             {k: v for k, v in base_params.items() if k != "locations"},
         ]
         
@@ -502,8 +534,15 @@ class WebexClient:
             
             # Try different parameter variations
             response = None
+            attempt_count = 0
             for param_set in param_variations:
+                attempt_count += 1
                 try:
+                    # Log what we're trying (for debugging)
+                    date_format_used = f"{param_set.get('startTime', '')[:20]}..."
+                    if attempt_count <= 3:  # Only log first few attempts
+                        pass  # Could add logging here if needed
+                    
                     response = await self._request("GET", endpoint, params=param_set)
                     # If successful, break out of loop
                     break
@@ -512,13 +551,22 @@ class WebexClient:
                     error_str = str(e)
                     # If it's a 400 error about invalid input, try next parameter variation
                     if "400" in error_str and ("invalid" in error_str.lower() or "input" in error_str.lower() or "string" in error_str.lower()):
-                        continue  # Try next parameter variation
+                        # Try next variation
+                        if attempt_count < len(param_variations):
+                            continue
                     # For other errors, raise immediately
                     raise
             
             if response is None and last_error:
                 # All parameter variations failed
-                raise last_error
+                # Provide helpful error message with what we tried
+                error_msg = str(last_error)
+                raise Exception(
+                    f"Failed to retrieve call detail records after trying {len(param_variations)} different parameter formats. "
+                    f"Last error: {error_msg}. "
+                    f"\n\nTried date formats: ISO 8601 (with/without milliseconds) and epoch timestamps. "
+                    f"If the API expects a different format, please check the API documentation."
+                )
             
             # The API returns a list of call records directly
             records = []
