@@ -1,0 +1,21 @@
+name: Webex Notifications
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Webex Notification
+        run: |
+          curl -X POST https://webexapis.com/v1/messages \
+            -H "Authorization: Bearer ${{ secrets.WEBEX_BOT_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "roomId": "${{ secrets.WEBEX_ROOM_ID }}",
+              "markdown": "🚀 **New Changes Pushed to Repository**\n\n**Repository:** ${{ github.repository }}\n**Branch:** ${{ github.ref_name }}\n**Author:** ${{ github.actor }}\n**Commit:** `${{ github.sha }}`\n**Message:** ${{ github.event.head_commit.message }}\n\n🔗 [View Changes](${{ github.event.head_commit.url }})"
+            }'
+

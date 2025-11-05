@@ -357,6 +357,355 @@ Note the full path (e.g., `/Users/yourname/mcp-webexcalling/venv/bin/python3` or
 
 For more detailed troubleshooting, see [SETUP.md](SETUP.md).
 
+## Production Setup: Permanent Application Configuration
+
+Personal Access Tokens expire after 12 hours, making them unsuitable for production use. This section explains how to set up a permanent Webex Bot or Integration for long-term, production-ready authentication.
+
+### Option A: Webex Bot (Recommended for Production)
+
+Webex Bots provide permanent access tokens that don't expire, making them ideal for production deployments.
+
+#### Step 1: Create a Webex Bot
+
+1. **Go to Webex Developer Portal:**
+   - Navigate to [https://developer.webex.com/](https://developer.webex.com/)
+   - Sign in with your Webex account
+
+2. **Create a New Bot:**
+   - Click on **"My Webex Apps"** in the top navigation
+   - Click **"Create a New App"**
+   - Select **"Bot"** from the options
+
+3. **Configure Bot Details:**
+   - **Name**: Enter a name for your bot (e.g., "MCP Webex Calling Bot")
+   - **Username**: Choose a unique username (e.g., "mcp-webexcalling-bot")
+   - **Icon** (optional): Upload an icon for your bot
+   - **Description**: "MCP Server for Webex Calling API integration"
+   - Click **"Add Bot"**
+
+4. **Save Your Bot Token:**
+   - After creation, you'll see a **Bot Access Token**
+   - **IMPORTANT**: Copy this token immediately - you won't be able to see it again
+   - Format: `Bearer Y2lzY29zcGFyazovL3VzL1BFT1BMRS9mNWIzNjE3Ny0xYjNiLTQ5YzUtOTIwZC1mNjYyNzYzYjIzYzM`
+   - Store this securely (you'll use it in Step 2)
+
+5. **Note Bot Information:**
+   - **Bot ID**: Found on the bot's details page
+   - **Bot Email**: `bot-username@webex.bot`
+   - Keep these for reference
+
+#### Step 2: Configure the MCP Server with Bot Token
+
+1. **Update your `.env` file:**
+   ```env
+   WEBEX_ACCESS_TOKEN=Y2lzY29zcGFyazovL3VzL1BFT1BMRS9mNWIzNjE3Ny0xYjNiLTQ5YzUtOTIwZC1mNjYyNzYzYjIzYzM
+   WEBEX_BASE_URL=https://webexapis.com/v1
+   ```
+
+2. **Update Claude Desktop Configuration:**
+   ```json
+   {
+     "mcpServers": {
+       "webex-calling": {
+         "command": "/path/to/venv/bin/python3",
+         "args": ["-m", "mcp_webexcalling.server"],
+         "cwd": "/path/to/mcp-webexcalling",
+         "env": {
+           "WEBEX_ACCESS_TOKEN": "YOUR_BOT_TOKEN_HERE",
+           "WEBEX_BASE_URL": "https://webexapis.com/v1"
+         }
+       }
+     }
+   }
+   ```
+
+#### Step 3: Verify Bot Permissions
+
+1. **Check Bot Scopes:**
+   - Bots have limited scopes by default
+   - For Webex Calling API access, you may need admin-level permissions
+   - Contact your Webex administrator to ensure the bot has:
+     - `spark-admin:locations_read`
+     - `spark-admin:organizations_read`
+     - `spark-admin:telephony_config_read`
+     - `spark-admin:read_call_history`
+
+2. **Test Bot Access:**
+   ```bash
+   curl -H "Authorization: Bearer YOUR_BOT_TOKEN" https://webexapis.com/v1/people/me
+   ```
+
+### Option B: Webex Integration (OAuth)
+
+For applications requiring OAuth flow, you can create a Webex Integration instead of a Bot.
+
+#### Step 1: Create a Webex Integration
+
+1. **Go to My Webex Apps:**
+   - Navigate to [https://developer.webex.com/my-apps](https://developer.webex.com/my-apps)
+   - Click **"Create a New App"**
+   - Select **"Integration"**
+
+2. **Configure Integration:**
+   - **Name**: "MCP Webex Calling Integration"
+   - **Description**: "MCP Server for Webex Calling API integration"
+   - **Icon** (optional): Upload an icon
+   - **Redirect URIs**: Add your redirect URI (e.g., `http://localhost:8080/callback`)
+   - Click **"Create Integration"**
+
+3. **Save Credentials:**
+   - **Client ID**: Copy this value
+   - **Client Secret**: Copy this value (you won't see it again)
+   - Store these securely
+
+4. **Configure Scopes:**
+   - Select the required scopes:
+     - `spark:people_read`
+     - `spark-admin:locations_read`
+     - `spark-admin:organizations_read`
+     - `spark-admin:telephony_config_read`
+     - `spark-admin:read_call_history`
+
+#### Step 2: Implement OAuth Flow
+
+1. **Get Authorization URL:**
+   ```
+   https://webexapis.com/v1/authorize?client_id=YOUR_CLIENT_ID&response_type=code&redirect_uri=YOUR_REDIRECT_URI&scope=spark:people_read%20spark-admin:locations_read
+   ```
+
+2. **Complete Authorization:**
+   - Visit the authorization URL in your browser
+   - Sign in and authorize the integration
+   - You'll be redirected with an authorization code
+
+3. **Exchange Code for Token:**
+   ```bash
+   curl -X POST https://webexapis.com/v1/access_token \
+     -H "Content-Type: application/x-www-form-urlencoded" \
+     -d "grant_type=authorization_code" \
+     -d "client_id=YOUR_CLIENT_ID" \
+     -d "client_secret=YOUR_CLIENT_SECRET" \
+     -d "code=AUTHORIZATION_CODE" \
+     -d "redirect_uri=YOUR_REDIRECT_URI"
+   ```
+
+4. **Use Refresh Token:**
+   - Save the `refresh_token` from the response
+   - Use it to refresh access tokens when they expire
+   - Access tokens typically expire after 14 days
+
+### Bot vs Integration: Which to Choose?
+
+- **Use a Bot** if:
+  - You need a permanent, non-expiring token
+  - You're building a service/daemon that runs continuously
+  - You don't need user-specific OAuth flows
+  - You have admin permissions to grant bot access
+
+- **Use an Integration** if:
+  - You need user-specific authentication
+  - You're building a multi-tenant application
+  - You need to refresh tokens programmatically
+  - You want to support multiple users
+
+For most MCP server deployments, a **Bot** is recommended for simplicity and permanence.
+
+## GitHub Actions Integration: Webex Notifications
+
+Set up automated notifications to a Webex space whenever code is pushed to the main branch using GitHub Actions.
+
+### Prerequisites
+
+- A Webex Bot created (see [Production Setup](#production-setup-permanent-application-configuration) above)
+- A Webex Space where you want to receive notifications
+- Admin access to your GitHub repository
+
+### Step 1: Create a Webex Space and Add Your Bot
+
+1. **Create or Open a Webex Space:**
+   - Open Webex and create a new space (or use an existing one)
+   - Name it something like "GitHub Notifications" or "MCP Webex Calling Updates"
+
+2. **Add Your Bot to the Space:**
+   - In the space, click the space name at the top
+   - Click **"People"** or **"Members"**
+   - Click **"Add People"**
+   - Search for your bot by username (e.g., `mcp-webexcalling-bot@webex.bot`)
+   - Add the bot to the space
+
+3. **Get the Space Room ID:**
+   - In the Webex space, click the space name at the top
+   - Click **"Integrations"** or **"Apps"**
+   - Look for the Room ID (or use the Webex API):
+     ```bash
+     curl -H "Authorization: Bearer YOUR_BOT_TOKEN" \
+          https://webexapis.com/v1/rooms
+     ```
+   - Find your space in the response and note the `id` field
+   - This is your **Room ID** (format: `Y2lzY29zcGFyazovL3VzL1JPT00vOTQ5NGQ4YzAtY2Y5Ny0xMWViLWEyZGMt...`)
+
+### Step 2: Configure GitHub Secrets
+
+1. **Go to Your GitHub Repository:**
+   - Navigate to `https://github.com/yourusername/mcp-webexcalling`
+   - Click on **"Settings"** tab
+
+2. **Add Repository Secrets:**
+   - Click **"Secrets and variables"** → **"Actions"**
+   - Click **"New repository secret"**
+
+3. **Add Two Secrets:**
+   
+   **Secret 1: `WEBEX_BOT_TOKEN`**
+   - **Name**: `WEBEX_BOT_TOKEN`
+   - **Value**: Your bot's access token (from Step 1 of Bot setup)
+   - Click **"Add secret"**
+
+   **Secret 2: `WEBEX_ROOM_ID`**
+   - **Name**: `WEBEX_ROOM_ID`
+   - **Value**: The Room ID from Step 1 above
+   - Click **"Add secret"**
+
+### Step 3: Create GitHub Actions Workflow
+
+1. **Create Workflow Directory:**
+   ```bash
+   mkdir -p .github/workflows
+   ```
+
+2. **Create Workflow File:**
+   Create `.github/workflows/webex-notifications.yml`:
+   ```yaml
+   name: Webex Notifications
+
+   on:
+     push:
+       branches:
+         - main
+     pull_request:
+       types: [opened, closed, merged]
+
+   jobs:
+     notify:
+       runs-on: ubuntu-latest
+       steps:
+         - name: Send Webex Notification
+           uses: docker://webex/webex-teams-bot-action:latest
+           with:
+             access_token: ${{ secrets.WEBEX_BOT_TOKEN }}
+             room_id: ${{ secrets.WEBEX_ROOM_ID }}
+             message: |
+               🚀 **New Changes Pushed to Repository**
+               
+               **Repository:** ${{ github.repository }}
+               **Branch:** ${{ github.ref_name }}
+               **Author:** ${{ github.actor }}
+               **Commit:** ${{ github.sha }}
+               **Message:** ${{ github.event.head_commit.message }}
+               
+               **View Changes:**
+               🔗 ${{ github.event.head_commit.url }}
+   ```
+
+   **Alternative: Using curl (more flexible):**
+   ```yaml
+   name: Webex Notifications
+
+   on:
+     push:
+       branches:
+         - main
+
+   jobs:
+     notify:
+       runs-on: ubuntu-latest
+       steps:
+         - name: Send Webex Notification
+           run: |
+             curl -X POST https://webexapis.com/v1/messages \
+               -H "Authorization: Bearer ${{ secrets.WEBEX_BOT_TOKEN }}" \
+               -H "Content-Type: application/json" \
+               -d '{
+                 "roomId": "${{ secrets.WEBEX_ROOM_ID }}",
+                 "markdown": "🚀 **New Changes Pushed**\n\n**Repository:** ${{ github.repository }}\n**Branch:** ${{ github.ref_name }}\n**Author:** ${{ github.actor }}\n**Commit:** `${{ github.sha }}`\n**Message:** ${{ github.event.head_commit.message }}\n\n🔗 [View Changes](${{ github.event.head_commit.url }})"
+               }'
+   ```
+
+3. **Commit and Push:**
+   ```bash
+   git add .github/workflows/webex-notifications.yml
+   git commit -m "Add GitHub Actions workflow for Webex notifications"
+   git push origin main
+   ```
+
+### Step 4: Test the Integration
+
+1. **Make a Test Change:**
+   ```bash
+   echo "# Test" >> README.md
+   git add README.md
+   git commit -m "Test Webex notification"
+   git push origin main
+   ```
+
+2. **Check Webex Space:**
+   - Within a few seconds, you should see a notification in your Webex space
+   - The message will include repository info, commit details, and a link
+
+### Step 5: Customize Notification Messages
+
+You can customize the notification message in the workflow file. Here are some useful GitHub context variables:
+
+- `${{ github.repository }}` - Repository name (e.g., "lutztalk/mcp-webexcalling")
+- `${{ github.ref_name }}` - Branch or tag name
+- `${{ github.actor }}` - Username who triggered the workflow
+- `${{ github.sha }}` - Commit SHA
+- `${{ github.event.head_commit.message }}` - Commit message
+- `${{ github.event.head_commit.url }}` - Commit URL
+- `${{ github.event.head_commit.author.name }}` - Commit author name
+- `${{ github.event.pull_request.title }}` - PR title (for PR events)
+
+### Troubleshooting
+
+#### No Notification Received
+
+1. **Check GitHub Actions:**
+   - Go to your repository → **"Actions"** tab
+   - Look for the workflow run
+   - Check if it completed successfully or failed
+
+2. **Verify Secrets:**
+   - Go to **Settings** → **Secrets and variables** → **Actions**
+   - Ensure both `WEBEX_BOT_TOKEN` and `WEBEX_ROOM_ID` are set correctly
+
+3. **Check Bot Token:**
+   ```bash
+   curl -H "Authorization: Bearer YOUR_BOT_TOKEN" https://webexapis.com/v1/people/me
+   ```
+   Should return bot information
+
+4. **Verify Bot is in Space:**
+   - Check that your bot is a member of the Webex space
+   - Ensure the Room ID matches the space
+
+5. **Check Workflow Logs:**
+   - Click on the failed workflow run
+   - Check the logs for error messages
+
+#### Bot Token Invalid
+
+- Bot tokens don't expire, but they can be regenerated
+- If you regenerate a bot token, update the GitHub secret
+- Ensure you're using the bot token, not a personal access token
+
+#### Room ID Not Found
+
+- Verify the Room ID is correct
+- Use the Webex API to list rooms:
+  ```bash
+  curl -H "Authorization: Bearer YOUR_BOT_TOKEN" https://webexapis.com/v1/rooms
+  ```
+
 ## Configuration
 
 The server uses environment variables for configuration:
