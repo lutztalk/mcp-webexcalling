@@ -392,10 +392,11 @@ class WebexClient:
         Uses the Webex Calling API detailed call history endpoint:
         https://developer.webex.com/calling/docs/api/v1/reports-detailed-call-history/get-detailed-call-history
         
+        Endpoint: /cdr_feed
+        Base URL: https://analytics.webexapis.com/v1
+        
         Requires: "Webex Calling Detailed Call History API access" role assigned by an administrator.
         """
-        params = {}
-        
         # Required parameters
         if not start_time:
             raise ValueError("start_time is required for call detail records")
@@ -403,155 +404,98 @@ class WebexClient:
             raise ValueError("end_time is required for call detail records")
         
         # Build query parameters according to API documentation
-        # Note: Parameter names may vary - try different formats
-        params["startTime"] = start_time
-        params["endTime"] = end_time
+        params = {
+            "startTime": start_time,
+            "endTime": end_time,
+        }
         
-        # Optional filters - try different parameter name formats
-        if person_id:
-            # Try both personId and person_id formats
-            params["personId"] = person_id
-        
+        # Optional filters
         if location_id:
-            # Try both locationId and location_id formats
-            params["locationId"] = location_id
+            # API uses "locations" parameter (may accept comma-separated list)
+            params["locations"] = location_id
         
-        # Pagination - try different parameter names
         if max_results:
             params["max"] = max_results
-            # Also try limit as alternative
-            params["limit"] = max_results
-
-        # Use the correct Webex Calling API endpoint for detailed call history
-        # Documentation: https://developer.webex.com/calling/docs/api/v1/reports-detailed-call-history/get-detailed-call-history
-        # Note: Webex Calling API may use analytics-calling.webexapis.com as base URL for this endpoint
-        # Try different endpoint variations and base URLs
         
-        endpoints_to_try = [
-            "/telephony/calls/reports/detailedCallHistory",  # Standard format
-            "/telephony/reports/detailedCallHistory",  # Alternative format
-            "/telephony/calls/detailedCallHistory",  # Alternative format
-            "/calls/reports/detailedCallHistory",  # Alternative format
-            "/v1/telephony/calls/reports/detailedCallHistory",  # With v1 prefix
-        ]
+        # Note: person_id is not directly supported by /cdr_feed endpoint
+        # We'll filter by person_id after retrieving records if needed
         
-        # Try with default base URL first
-        # Try different parameter combinations to find the correct format
-        param_variations = [
-            # Standard format
-            {
-                "startTime": start_time,
-                "endTime": end_time,
-                **({"personId": person_id} if person_id else {}),
-                **({"locationId": location_id} if location_id else {}),
-                "max": max_results
-            },
-            # Alternative: without personId/locationId if causing issues
-            {
-                "startTime": start_time,
-                "endTime": end_time,
-                "max": max_results
-            },
-            # Alternative: different parameter names
-            {
-                "start_time": start_time,
-                "end_time": end_time,
-                **({"person_id": person_id} if person_id else {}),
-                **({"location_id": location_id} if location_id else {}),
-                "max": max_results
-            },
-        ]
+        # Use the correct endpoint and base URL
+        # Base URL: https://analytics.webexapis.com/v1
+        # Endpoint: /cdr_feed
+        endpoint = "/cdr_feed"
+        analytics_base_url = "https://analytics.webexapis.com/v1"
         
-        last_error = None
-        last_endpoint = None
-        
-        for endpoint in endpoints_to_try:
-            for param_set in param_variations:
-                try:
-                    response = await self._request("GET", endpoint, params=param_set)
-                    # The API may return items directly or in a data structure
-                    if isinstance(response, list):
-                        return response
-                    elif "items" in response:
-                        return response.get("items", [])
-                    elif "data" in response:
-                        return response.get("data", [])
-                    else:
-                        # Return the full response if structure is unexpected
-                        return [response] if response else []
-                except Exception as e:
-                    last_error = e
-                    last_endpoint = endpoint
-                    error_str = str(e)
-                    # If it's a 400 error about parameters, try next parameter variation
-                    if "400" in error_str and ("parameter" in error_str.lower() or "invalid" in error_str.lower() or "call id" in error_str.lower()):
-                        continue  # Try next parameter variation
-                    # If it's a 404, try the next endpoint
-                    if "404" in error_str or "not found" in error_str.lower():
-                        break  # Break out of param loop, try next endpoint
-                    # For other errors, check if it's auth-related first
-                    if "403" in error_str or "Forbidden" in error_str:
-                        raise Exception(
-                            f"Access denied (403 Forbidden). "
-                            f"You need the 'Webex Calling Detailed Call History API access' role. "
-                            f"This role must be assigned by another administrator. "
-                            f"Contact your Webex administrator to assign this role to your account. "
-                            f"Original error: {error_str}"
-                        )
-                    elif "401" in error_str or "Unauthorized" in error_str:
-                        raise Exception(
-                            f"Authentication failed. Check your access token and ensure it has the required scopes. "
-                            f"Original error: {error_str}"
-                        )
-                    # For other errors, raise immediately
-                    raise
-        
-        # If all endpoints failed with 404, try with analytics base URL
-        analytics_base_url = "https://analytics-calling.webexapis.com/v1"
+        # Temporarily switch to analytics base URL
         original_base = self.base_url
         try:
             self.base_url = analytics_base_url
-            for endpoint in endpoints_to_try:
-                for param_set in param_variations:
-                    try:
-                        response = await self._request("GET", endpoint, params=param_set)
-                        # Restore original base URL on success
-                        self.base_url = original_base
-                        # The API may return items directly or in a data structure
-                        if isinstance(response, list):
-                            return response
-                        elif "items" in response:
-                            return response.get("items", [])
-                        elif "data" in response:
-                            return response.get("data", [])
-                        else:
-                            return [response] if response else []
-                    except Exception as e:
-                        error_str = str(e)
-                        # If it's a 400 error about parameters, try next parameter variation
-                        if "400" in error_str and ("parameter" in error_str.lower() or "invalid" in error_str.lower() or "call id" in error_str.lower()):
-                            continue  # Try next parameter variation
-                        # If it's a 404, try the next endpoint
-                        if "404" in error_str or "not found" in error_str.lower():
-                            break  # Break out of param loop, try next endpoint
-                        # For other errors, continue to next variation
-                        continue
+            response = await self._request("GET", endpoint, params=params)
+            
+            # The API returns a list of call records
+            records = []
+            if isinstance(response, list):
+                records = response
+            elif isinstance(response, dict):
+                # Try common response structures
+                if "items" in response:
+                    records = response.get("items", [])
+                elif "data" in response:
+                    records = response.get("data", [])
+                elif "calls" in response:
+                    records = response.get("calls", [])
+                else:
+                    # Return the response as a single-item list if unexpected structure
+                    records = [response] if response else []
+            
+            # Filter by person_id if provided (since API doesn't support it directly)
+            if person_id and records:
+                # Filter records where the person matches
+                filtered_records = []
+                for record in records:
+                    # Check various fields where person_id might appear
+                    from_person = record.get("from", {}).get("personId") if isinstance(record.get("from"), dict) else None
+                    to_person = record.get("to", {}).get("personId") if isinstance(record.get("to"), dict) else None
+                    record_person_id = record.get("personId") or record.get("person_id")
+                    
+                    if person_id in [from_person, to_person, record_person_id]:
+                        filtered_records.append(record)
+                records = filtered_records
+            
+            return records
+            
+        except Exception as e:
+            error_msg = str(e)
+            # Provide helpful error message based on common issues
+            if "403" in error_msg or "Forbidden" in error_msg:
+                raise Exception(
+                    f"Access denied (403 Forbidden). "
+                    f"You need the 'Webex Calling Detailed Call History API access' role. "
+                    f"This role must be assigned by another administrator - you cannot assign it to yourself. "
+                    f"Contact your Webex administrator to assign this role to your account. "
+                    f"Original error: {error_msg}"
+                )
+            elif "401" in error_msg or "Unauthorized" in error_msg:
+                raise Exception(
+                    f"Authentication failed. Check your access token and ensure it has the required scopes. "
+                    f"Original error: {error_msg}"
+                )
+            elif "404" in error_msg:
+                raise Exception(
+                    f"Endpoint not found (404). "
+                    f"Using endpoint: {analytics_base_url}{endpoint}. "
+                    f"Verify your organization has Webex Calling enabled and the endpoint is available. "
+                    f"Original error: {error_msg}"
+                )
+            else:
+                raise Exception(
+                    f"Failed to retrieve call detail records from {analytics_base_url}{endpoint}. "
+                    f"Error: {error_msg}. "
+                    f"Ensure you have the 'Webex Calling Detailed Call History API access' role assigned."
+                )
         finally:
             # Always restore original base URL
             self.base_url = original_base
-        
-        # If all endpoints and base URLs failed, provide helpful error
-        error_msg = str(last_error) if last_error else "Endpoint not found"
-        raise Exception(
-            f"Failed to retrieve call detail records. "
-            f"Tried multiple endpoints and base URLs. "
-            f"Last error: {error_msg}. "
-            f"\n\nPossible solutions:"
-            f"\n1. Verify the endpoint path is correct for your Webex Calling API version"
-            f"\n2. Check if your organization uses a different base URL (e.g., analytics-calling.webexapis.com)"
-            f"\n3. Ensure you have the 'Webex Calling Detailed Call History API access' role assigned"
-            f"\n4. Verify call history data exists for the specified time range (data available 5 minutes to 48 hours after call ends)"
-        )
 
     async def get_call_analytics(
         self,

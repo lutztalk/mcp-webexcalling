@@ -35,9 +35,9 @@ async def test_call_detail_records():
     print(f"\n📅 Testing Call Detail Records API")
     print(f"   Start Time: {start_time_str}")
     print(f"   End Time: {end_time_str}")
-    print(f"   Base URL: {client.base_url}")
-    print(f"   Endpoint: /telephony/calls/reports/detailedCallHistory")
-    print(f"   Full URL: {client.base_url}/telephony/calls/reports/detailedCallHistory")
+    print(f"   Base URL: https://analytics.webexapis.com/v1")
+    print(f"   Endpoint: /cdr_feed")
+    print(f"   Full URL: https://analytics.webexapis.com/v1/cdr_feed")
     print()
     
     try:
