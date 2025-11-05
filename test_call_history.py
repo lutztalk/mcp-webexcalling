@@ -60,55 +60,43 @@ async def test_call_detail_records():
         print(f"✅ SUCCESS! Retrieved {len(records)} call records")
         
         if records:
-            print(f"\n📊 Sample Call Record:")
-            sample = records[0]
-            
-            # Debug: Print the actual structure to see what fields are available
-            print(f"   📋 Record structure (first 3 keys): {list(sample.keys())[:10]}")
+            print(f"\n📊 Call Records Summary:")
+            print(f"   Total calls retrieved: {len(records)}")
+            print(f"\n📞 Sample Call Records (showing first 5):")
             print()
             
-            # Use the actual field names from the API response
-            call_id = sample.get('Call ID') or sample.get('id') or sample.get('callId')
-            direction = sample.get('Direction') or sample.get('direction')
-            duration = sample.get('Duration') or sample.get('duration')
-            start_time = sample.get('Start time') or sample.get('startTime')
-            answered = sample.get('Answered') or sample.get('answered')
-            call_type = sample.get('Call type') or sample.get('callType')
-            calling_line_id = sample.get('Calling line ID') or sample.get('callingLineId')
-            called_line_id = sample.get('Called line ID') or sample.get('calledLineId')
-            
-            # Handle 'from' and 'to' - could be objects or strings
-            from_info = sample.get('from') or sample.get('fromNumber') or sample.get('caller')
-            to_info = sample.get('to') or sample.get('toNumber') or sample.get('called')
-            
-            if isinstance(from_info, dict):
-                from_number = from_info.get('phoneNumber') or from_info.get('number') or from_info.get('phone') or from_info.get('address')
-            elif isinstance(from_info, str):
-                from_number = from_info
-            else:
-                from_number = None
-            
-            if isinstance(to_info, dict):
-                to_number = to_info.get('phoneNumber') or to_info.get('number') or to_info.get('phone') or to_info.get('address')
-            elif isinstance(to_info, str):
-                to_number = to_info
-            else:
-                to_number = None
-            
-            status = sample.get('status') or sample.get('callStatus') or sample.get('call_status') or sample.get('result')
-            
-            print(f"   Call ID: {call_id or 'N/A'}")
-            print(f"   Direction: {direction or 'N/A'}")
-            print(f"   Duration: {duration or 'N/A'} seconds")
-            print(f"   Start Time: {start_time or 'N/A'}")
-            print(f"   From: {from_number or 'N/A'}")
-            print(f"   To: {to_number or 'N/A'}")
-            print(f"   Status: {status or 'N/A'}")
-            
-            # Print full record for debugging (first 500 chars)
-            print(f"\n   🔍 Full record (sample):")
-            import json
-            print(f"   {json.dumps(sample, indent=2, default=str)[:500]}...")
+            # Show first 5 records
+            for i, call in enumerate(records[:5], 1):
+                # Use the actual field names from the API response
+                call_id = call.get('Call ID', 'N/A')
+                direction = call.get('Direction', 'N/A')
+                duration = call.get('Duration', 0)
+                start_time = call.get('Start time', 'N/A')
+                answer_time = call.get('Answer time', 'N/A')
+                answered = call.get('Answered', 'N/A')
+                call_type = call.get('Call type', 'N/A')
+                calling_line_id = call.get('Calling line ID', 'N/A')
+                called_line_id = call.get('Called line ID', 'N/A')
+                
+                # Format duration
+                duration_str = f"{duration} seconds"
+                if duration > 0:
+                    minutes = duration // 60
+                    seconds = duration % 60
+                    duration_str = f"{minutes}m {seconds}s ({duration}s total)"
+                
+                print(f"   Call #{i}:")
+                print(f"      Call ID: {call_id}")
+                print(f"      Direction: {direction}")
+                print(f"      Call Type: {call_type}")
+                print(f"      Duration: {duration_str}")
+                print(f"      Start Time: {start_time}")
+                if answer_time and answer_time != 'N/A' and answer_time != '':
+                    print(f"      Answer Time: {answer_time}")
+                print(f"      From (Calling): {calling_line_id}")
+                print(f"      To (Called): {called_line_id}")
+                print(f"      Answered: {answered}")
+                print()
         else:
             print("   ⚠️  No call records found in the specified time range")
         
