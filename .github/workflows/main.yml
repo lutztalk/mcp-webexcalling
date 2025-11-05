@@ -1,0 +1,50 @@
+name: Notify Webex on Push
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      # add more branches here if you like
+      # - 'release/*'
+
+jobs:
+  notify-webex:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send push notification to Webex
+        env:
+          WEBEX_WEBHOOK_URL: ${{ secrets.WEBEX_WEBHOOK_URL }}
+
+          # GitHub context → env vars for easy use in bash
+          GITHUB_REPO: ${{ github.repository }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          # Derive branch name from ref (refs/heads/main → main)
+          BRANCH="${GITHUB_REF#refs/heads/}"
+
+          # Build helpful URLs
+          REPO_URL="https://github.com/${GITHUB_REPO}"
+          COMMIT_URL="${REPO_URL}/commit/${GITHUB_SHA}"
+
+          # Build the markdown message for Webex
+          MARKDOWN="**🔔 New push to \`${BRANCH}\`**\n\n"
+          MARKDOWN+="Repository: [${GITHUB_REPO}](${REPO_URL})\n"
+          MARKDOWN+="Pushed by: **${GITHUB_ACTOR}**\n\n"
+          MARKDOWN+="Last commit: \`${GITHUB_SHA:0:7}\` – ${GITHUB_COMMIT_MSG}\n\n"
+          MARKDOWN+="[View commit →](${COMMIT_URL})"
+
+          # Turn it into JSON with a non-empty 'markdown' field
+          echo "Sending to Webex:"
+          echo -e "$MARKDOWN"
+
+          echo '{}' | jq --arg markdown "$MARKDOWN" '.markdown = $markdown' > payload.json
+
+          curl -sS -X POST \
+            -H "Content-Type: application/json" \
+            -d @payload.json \
+            "$WEBEX_WEBHOOK_URL"
