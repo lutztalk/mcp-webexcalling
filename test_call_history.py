@@ -67,11 +67,15 @@ async def test_call_detail_records():
             print(f"   📋 Record structure (first 3 keys): {list(sample.keys())[:10]}")
             print()
             
-            # Try different possible field names
-            call_id = sample.get('id') or sample.get('callId') or sample.get('call_id') or sample.get('callID')
-            direction = sample.get('direction') or sample.get('callDirection') or sample.get('call_direction')
-            duration = sample.get('duration') or sample.get('callDuration') or sample.get('call_duration') or sample.get('durationSeconds')
-            start_time = sample.get('startTime') or sample.get('start_time') or sample.get('start') or sample.get('callStartTime')
+            # Use the actual field names from the API response
+            call_id = sample.get('Call ID') or sample.get('id') or sample.get('callId')
+            direction = sample.get('Direction') or sample.get('direction')
+            duration = sample.get('Duration') or sample.get('duration')
+            start_time = sample.get('Start time') or sample.get('startTime')
+            answered = sample.get('Answered') or sample.get('answered')
+            call_type = sample.get('Call type') or sample.get('callType')
+            calling_line_id = sample.get('Calling line ID') or sample.get('callingLineId')
+            called_line_id = sample.get('Called line ID') or sample.get('calledLineId')
             
             # Handle 'from' and 'to' - could be objects or strings
             from_info = sample.get('from') or sample.get('fromNumber') or sample.get('caller')
