@@ -747,6 +747,29 @@ async def list_tools() -> list[Tool]:
             },
         ),
         Tool(
+            name="generate_activation_code",
+            description="Generate an activation code for a new device registration. Only requires personId - no MAC address needed.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "person_id": {"type": "string", "description": "The user ID to associate the device with"},
+                },
+                "required": ["person_id"],
+            },
+        ),
+        Tool(
+            name="create_device_by_mac",
+            description="Create/provision a device by MAC address. Requires 12-digit MAC address and device model.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "mac_address": {"type": "string", "description": "12-digit MAC address (e.g., 'AABBCCDDEEFF' or 'AA:BB:CC:DD:EE:FF')"},
+                    "model": {"type": "string", "description": "Device model (e.g., 'Cisco 9871')"},
+                },
+                "required": ["mac_address", "model"],
+            },
+        ),
+        Tool(
             name="deactivate_device",
             description="Deactivate a device",
             inputSchema={
@@ -1659,6 +1682,20 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> Sequence[TextConten
         elif name == "activate_device":
             device_id = arguments["device_id"]
             result = await client.activate_device(device_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "generate_activation_code":
+            person_id = arguments["person_id"]
+            result = await client.generate_activation_code(person_id=person_id)
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "create_device_by_mac":
+            mac_address = arguments["mac_address"]
+            model = arguments["model"]
+            result = await client.create_device_by_mac(
+                mac_address=mac_address,
+                model=model
+            )
             return [TextContent(type="text", text=format_json(result))]
 
         elif name == "deactivate_device":

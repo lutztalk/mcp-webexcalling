@@ -138,8 +138,16 @@ class WebexClient:
         return items[0] if items else None
 
     async def get_user_calling_settings(self, person_id: str) -> Dict[str, Any]:
-        """Get calling settings for a user"""
-        return await self._request("GET", f"/telephony/config/people/{person_id}")
+        """Get calling settings for a user including extension data
+        
+        Uses GET /people/{personId} with callingData=true parameter
+        See: https://developer.webex.com/calling/docs/api/v1/people/get-person-details
+        """
+        return await self._request(
+            "GET", 
+            f"/people/{person_id}",
+            params={"callingData": "true"}
+        )
 
     async def list_call_queues(
         self, location_id: Optional[str] = None, max_results: int = 100
@@ -314,35 +322,149 @@ class WebexClient:
         mobile_number: Optional[str] = None,
         location_id: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Update user calling extension and settings"""
-        # First get current settings
-        current_settings = await self.get_user_calling_settings(person_id)
+        """Update user calling extension and settings
         
-        # Build update payload
-        update_data = {}
+        Uses PUT /people/{personId} endpoint as per:
+        https://developer.webex.com/calling/docs/api/v1/people/update-a-person
+        
+        Note: Only personId is required. We send only the fields being updated.
+        
+        Important: Use the 'extension' field directly (not phoneNumbers work_extension).
+        The extension value should not include the location routing prefix.
+        """
+        # Get user details first to extract displayName (required by API)
+        # Use get_user_by_email since we know it returns displayName correctly
+        user_details = None
+        try:
+            # First get basic user details to find email
+            temp_user = await self.get_user_details(person_id)
+            if temp_user and temp_user.get("emails") and len(temp_user["emails"]) > 0:
+                # Use get_user_by_email to get complete user data including displayName
+                user_details = await self.get_user_by_email(temp_user["emails"][0])
+            else:
+                # Fallback to temp_user if no email available
+                user_details = temp_user
+        except Exception as e:
+            raise Exception(f"Unable to retrieve user details: {str(e)}. Cannot update extension.")
+        
+        if not user_details:
+            raise Exception("Unable to retrieve user details. Cannot update extension.")
+        
+        # Extract displayName from user details (required by API)
+        # Always construct from firstName + lastName to ensure we have a valid value
+        display_name = user_details.get("displayName")
+        
+        # If displayName is missing or None, construct from firstName + lastName
+        if not display_name or display_name is None or display_name == "":
+            name_parts = []
+            if user_details.get("firstName"):
+                name_parts.append(str(user_details["firstName"]))
+            if user_details.get("lastName"):
+                name_parts.append(str(user_details["lastName"]))
+            if name_parts:
+                display_name = " ".join(name_parts).strip()
+        
+        # Final fallback to email if still no displayName
+        if not display_name or display_name is None or display_name == "":
+            if user_details.get("emails") and len(user_details["emails"]) > 0:
+                display_name = str(user_details["emails"][0])
+        
+        # Final verification - this should never happen but ensures we catch it
+        if not display_name or display_name is None or display_name == "":
+            raise Exception(f"Cannot determine displayName for user. User data: firstName={user_details.get('firstName')}, lastName={user_details.get('lastName')}, emails={user_details.get('emails')}")
+        
+        # Build update payload with displayName (required) and extension field
+        # Send minimal payload: just displayName and extension
+        # The API docs say only personId is required, but displayName is also required in practice
+        update_data = {
+            "displayName": str(display_name).strip()
+        }
+        
+        # Double-check displayName is not empty after strip
+        if not update_data["displayName"]:
+            raise Exception("displayName is empty after processing. Cannot update extension.")
+        
+        # Update extension field directly (not phoneNumbers work_extension)
         if extension is not None:
             update_data["extension"] = extension
+        
         if extension_dial is not None:
             update_data["extensionDial"] = extension_dial
+        
+        # Update name fields if provided
         if first_name is not None:
             update_data["firstName"] = first_name
+            
         if last_name is not None:
             update_data["lastName"] = last_name
-        if phone_number is not None:
-            update_data["phoneNumber"] = phone_number
-        if mobile_number is not None:
-            update_data["mobileNumber"] = mobile_number
+        
+        # Update phoneNumbers array for work/mobile numbers (but NOT extension)
+        # The extension is handled separately via the 'extension' field
+        if phone_number is not None or mobile_number is not None:
+            # Get current phoneNumbers to preserve existing ones
+            try:
+                current_user = await self.get_user_calling_settings(person_id)
+                phone_numbers = current_user.get("phoneNumbers", []).copy()
+            except Exception:
+                phone_numbers = []
+            
+            if phone_number is not None:
+                phone_found = False
+                for i, phone in enumerate(phone_numbers):
+                    if phone.get("type") == "work":
+                        phone_numbers[i]["value"] = phone_number
+                        phone_found = True
+                        break
+                
+                if not phone_found:
+                    phone_numbers.append({
+                        "type": "work",
+                        "value": phone_number,
+                        "primary": True
+                    })
+            
+            if mobile_number is not None:
+                mobile_found = False
+                for i, phone in enumerate(phone_numbers):
+                    if phone.get("type") == "mobile":
+                        phone_numbers[i]["value"] = mobile_number
+                        mobile_found = True
+                        break
+                
+                if not mobile_found:
+                    phone_numbers.append({
+                        "type": "mobile",
+                        "value": mobile_number,
+                        "primary": False
+                    })
+            
+            update_data["phoneNumbers"] = phone_numbers
+        
         if location_id is not None:
             update_data["locationId"] = location_id
 
-        # Merge with existing settings
-        update_data = {**current_settings, **update_data}
-
-        return await self._request(
-            "PUT",
-            f"/telephony/config/people/{person_id}",
-            json_data=update_data
-        )
+        # Try updating via telephony config endpoint first (for extension updates)
+        # If that fails, fall back to /people endpoint
+        try:
+            # Try telephony config endpoint for extension updates
+            return await self._request(
+                "PUT",
+                f"/telephony/config/people/{person_id}",
+                json_data=update_data
+            )
+        except Exception as e:
+            # Fall back to /people endpoint if telephony config doesn't work
+            error_msg = str(e)
+            if "404" in error_msg or "Not Found" in error_msg:
+                # Try the /people endpoint instead
+                return await self._request(
+                    "PUT",
+                    f"/people/{person_id}",
+                    json_data=update_data
+                )
+            else:
+                # Re-raise other errors
+                raise
 
     async def assign_phone_number_to_user(
         self, person_id: str, phone_number_id: str
@@ -873,6 +995,63 @@ class WebexClient:
         return await self._request(
             "POST",
             f"/devices/{device_id}/activate"
+        )
+
+    async def generate_activation_code(
+        self, person_id: str
+    ) -> Dict[str, Any]:
+        """Generate an activation code for a new device
+        
+        Generates an activation code for phone registration using POST /devices/activationCode.
+        Only requires personId - no MAC address or device creation needed.
+        
+        See: https://developer.webex.com/calling/docs/api/v1/devices/create-a-device-activation-code
+        
+        Args:
+            person_id: The user ID to associate the device with
+        """
+        # Use the official endpoint: POST /devices/activationCode
+        # Only personId is required per documentation
+        activation_request = {
+            "personId": person_id
+        }
+        
+        return await self._request(
+            "POST",
+            "/devices/activationCode",
+            json_data=activation_request
+        )
+
+    async def create_device_by_mac(
+        self, mac_address: str, model: str
+    ) -> Dict[str, Any]:
+        """Create/provision a device by MAC address
+        
+        Creates a device entry using the MAC address and model.
+        The MAC address should be a 12-digit hexadecimal string (e.g., "AABBCCDDEEFF").
+        
+        See: https://developer.webex.com/calling/docs/api/v1/devices/create-a-device-activation-code
+        
+        Args:
+            mac_address: 12-digit MAC address (e.g., "AABBCCDDEEFF")
+            model: Device model (e.g., "Cisco 9871")
+        """
+        # Validate MAC address format (12 hex digits)
+        mac_clean = mac_address.replace(":", "").replace("-", "").upper()
+        if len(mac_clean) != 12 or not all(c in "0123456789ABCDEF" for c in mac_clean):
+            raise ValueError("MAC address must be 12 hexadecimal digits (e.g., 'AABBCCDDEEFF')")
+        
+        # Use the official endpoint: POST /devices
+        # Requires mac (12-digit) and model
+        device_data = {
+            "mac": mac_clean,
+            "model": model
+        }
+        
+        return await self._request(
+            "POST",
+            "/devices",
+            json_data=device_data
         )
 
     async def deactivate_device(self, device_id: str) -> Dict[str, Any]:
