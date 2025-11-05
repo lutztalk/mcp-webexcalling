@@ -28,16 +28,42 @@ class WebexClient:
         url = f"{self.base_url}{endpoint}"
 
         async with httpx.AsyncClient() as client:
-            response = await client.request(
-                method=method,
-                url=url,
-                headers=self.headers,
-                params=params,
-                json=json_data,
-                timeout=30.0,
-            )
-            response.raise_for_status()
-            return response.json()
+            try:
+                response = await client.request(
+                    method=method,
+                    url=url,
+                    headers=self.headers,
+                    params=params,
+                    json=json_data,
+                    timeout=30.0,
+                )
+                response.raise_for_status()
+                return response.json()
+            except httpx.HTTPStatusError as e:
+                # Provide detailed error information
+                error_msg = f"HTTP {e.response.status_code} error for {method} {endpoint}"
+                try:
+                    error_body = e.response.json()
+                    if "message" in error_body:
+                        error_msg += f": {error_body['message']}"
+                    elif "errors" in error_body:
+                        error_msg += f": {error_body['errors']}"
+                except:
+                    error_msg += f": {e.response.text[:200]}"
+                
+                # Provide helpful context for common errors
+                if e.response.status_code == 401:
+                    error_msg += " (Authentication failed - check your access token)"
+                elif e.response.status_code == 403:
+                    error_msg += " (Permission denied - ensure you have admin access and required scopes)"
+                elif e.response.status_code == 404:
+                    error_msg += f" (Endpoint not found - {endpoint} may not exist or be available for your organization)"
+                elif e.response.status_code == 429:
+                    error_msg += " (Rate limit exceeded - wait before retrying)"
+                
+                raise Exception(error_msg) from e
+            except httpx.RequestError as e:
+                raise Exception(f"Request failed for {method} {endpoint}: {str(e)}") from e
 
     async def get_organization_info(self) -> Dict[str, Any]:
         """Get information about the organization"""
@@ -133,19 +159,14 @@ class WebexClient:
         end_time: Optional[str] = None,
         max_results: int = 100,
     ) -> List[Dict[str, Any]]:
-        """Get call history"""
-        params = {"max": max_results}
-        if person_id:
-            params["personId"] = person_id
-        if location_id:
-            params["locationId"] = location_id
-        if start_time:
-            params["startTime"] = start_time
-        if end_time:
-            params["endTime"] = end_time
-
-        response = await self._request("GET", "/telephony/calls/callHistory", params=params)
-        return response.get("items", [])
+        """Get call history - uses the same endpoint as get_call_detail_records"""
+        return await self.get_call_detail_records(
+            start_time=start_time,
+            end_time=end_time,
+            person_id=person_id,
+            location_id=location_id,
+            max_results=max_results,
+        )
 
     async def search_users(
         self, query: str, org_id: Optional[str] = None, max_results: int = 100
@@ -366,19 +387,56 @@ class WebexClient:
         location_id: Optional[str] = None,
         max_results: int = 100,
     ) -> List[Dict[str, Any]]:
-        """Get call detail records (CDRs) for reporting"""
+        """Get call detail records (CDRs) for reporting
+        
+        For Webex Calling, CDRs are accessed via location-specific endpoints.
+        If location_id is provided, uses location endpoint. Otherwise, tries organization-level.
+        """
         params = {"max": max_results}
         if start_time:
+            # Format: ISO 8601 or milliseconds since epoch
             params["startTime"] = start_time
         if end_time:
             params["endTime"] = end_time
         if person_id:
             params["personId"] = person_id
-        if location_id:
-            params["locationId"] = location_id
 
-        response = await self._request("GET", "/telephony/calls/callHistory", params=params)
-        return response.get("items", [])
+        # Try location-specific endpoint first (most reliable)
+        if location_id:
+            try:
+                endpoint = f"/telephony/config/locations/{location_id}/callHistory"
+                response = await self._request("GET", endpoint, params=params)
+                return response.get("items", [])
+            except Exception:
+                # Fall back to organization-level if location endpoint fails
+                pass
+
+        # Try organization-level endpoint
+        try:
+            # Use the calls endpoint with proper filtering
+            endpoint = "/telephony/calls"
+            response = await self._request("GET", endpoint, params=params)
+            return response.get("items", [])
+        except Exception as e:
+            # If that fails, try the analytics endpoint
+            try:
+                # Alternative: use analytics endpoint which might have call data
+                endpoint = "/telephony/analytics/calls"
+                if location_id:
+                    endpoint = f"/telephony/config/locations/{location_id}/analytics/calls"
+                response = await self._request("GET", endpoint, params=params)
+                return response.get("items", [])
+            except Exception:
+                # Last resort: try the legacy callHistory endpoint
+                try:
+                    response = await self._request("GET", "/telephony/calls/callHistory", params=params)
+                    return response.get("items", [])
+                except Exception as inner_e:
+                    raise Exception(
+                        f"Unable to retrieve call detail records. "
+                        f"Tried multiple endpoints. Last error: {str(inner_e)}. "
+                        f"Ensure you have admin permissions and call history is enabled for your organization."
+                    )
 
     async def get_call_analytics(
         self,
@@ -1053,6 +1111,69 @@ class WebexClient:
         response = await self._request("GET", "/telephony/calls/metrics", params=params)
         return response.get("metrics", {})
 
+    async def get_pstn_minutes(
+        self,
+        person_id: Optional[str] = None,
+        location_id: Optional[str] = None,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Get PSTN (Public Switched Telephone Network) minutes for a person or location
+        
+        Calculates total PSTN minutes from call detail records by filtering for external calls.
+        """
+        # Get call detail records
+        call_records = await self.get_call_detail_records(
+            person_id=person_id,
+            location_id=location_id,
+            start_time=start_time,
+            end_time=end_time,
+            max_results=1000
+        )
+        
+        # Filter for PSTN calls (external calls, not internal)
+        pstn_calls = []
+        total_minutes = 0
+        total_seconds = 0
+        
+        for call in call_records:
+            # PSTN calls are typically external calls
+            # Check if call is outgoing to external number or incoming from external
+            call_duration = call.get("duration", 0)  # in seconds
+            
+            # Consider calls that are:
+            # - Outgoing to external numbers (not internal extensions)
+            # - Incoming from external numbers
+            # - Has duration > 0 (completed calls)
+            is_external = call.get("external", False)
+            destination_type = call.get("destinationType", "")
+            origin_type = call.get("originType", "")
+            direction = call.get("direction", "").lower()
+            
+            # PSTN calls are typically external or have specific indicators
+            if (call_duration > 0 and 
+                (is_external or 
+                 destination_type not in ["internal", "extension"] or
+                 origin_type not in ["internal", "extension"] or
+                 "external" in direction or
+                 call.get("callType", "").lower() in ["pstn", "external"])):
+                pstn_calls.append(call)
+                total_seconds += call_duration
+        
+        # Convert seconds to minutes
+        total_minutes = total_seconds / 60.0
+        
+        return {
+            "personId": person_id,
+            "locationId": location_id,
+            "startTime": start_time,
+            "endTime": end_time,
+            "totalPSTNMinutes": round(total_minutes, 2),
+            "totalPSTNSeconds": total_seconds,
+            "totalPSTNCalls": len(pstn_calls),
+            "calls": pstn_calls[:100]  # Return first 100 for details
+        }
+
     async def get_call_statistics(
         self,
         start_time: str,
@@ -1070,8 +1191,21 @@ class WebexClient:
         if group_by:
             params["groupBy"] = group_by
 
-        response = await self._request("GET", "/telephony/calls/statistics", params=params)
-        return response.get("statistics", {})
+        try:
+            response = await self._request("GET", "/telephony/calls/statistics", params=params)
+            return response.get("statistics", {})
+        except Exception:
+            # Fallback: calculate from call detail records
+            call_records = await self.get_call_detail_records(
+                start_time=start_time,
+                end_time=end_time,
+                location_id=location_id,
+                max_results=1000
+            )
+            return {
+                "totalCalls": len(call_records),
+                "calls": call_records[:100]
+            }
 
     async def get_user_call_statistics(
         self,
