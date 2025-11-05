@@ -389,54 +389,71 @@ class WebexClient:
     ) -> List[Dict[str, Any]]:
         """Get call detail records (CDRs) for reporting
         
-        For Webex Calling, CDRs are accessed via location-specific endpoints.
-        If location_id is provided, uses location endpoint. Otherwise, tries organization-level.
+        Uses the Webex Calling API detailed call history endpoint:
+        https://developer.webex.com/calling/docs/api/v1/reports-detailed-call-history/get-detailed-call-history
+        
+        Requires: "Webex Calling Detailed Call History API access" role assigned by an administrator.
         """
-        params = {"max": max_results}
-        if start_time:
-            # Format: ISO 8601 or milliseconds since epoch
-            params["startTime"] = start_time
-        if end_time:
-            params["endTime"] = end_time
+        params = {}
+        
+        # Required parameters
+        if not start_time:
+            raise ValueError("start_time is required for call detail records")
+        if not end_time:
+            raise ValueError("end_time is required for call detail records")
+        
+        # Build query parameters according to API documentation
+        params["startTime"] = start_time
+        params["endTime"] = end_time
+        
+        # Optional filters
         if person_id:
             params["personId"] = person_id
-
-        # Try location-specific endpoint first (most reliable)
         if location_id:
-            try:
-                endpoint = f"/telephony/config/locations/{location_id}/callHistory"
-                response = await self._request("GET", endpoint, params=params)
-                return response.get("items", [])
-            except Exception:
-                # Fall back to organization-level if location endpoint fails
-                pass
+            params["locationId"] = location_id
+        
+        # Pagination
+        if max_results:
+            params["max"] = max_results
 
-        # Try organization-level endpoint
+        # Use the correct Webex Calling API endpoint for detailed call history
+        # Documentation: https://developer.webex.com/calling/docs/api/v1/reports-detailed-call-history/get-detailed-call-history
+        endpoint = "/telephony/calls/reports/detailedCallHistory"
+        
         try:
-            # Use the calls endpoint with proper filtering
-            endpoint = "/telephony/calls"
             response = await self._request("GET", endpoint, params=params)
-            return response.get("items", [])
-        except Exception as e:
-            # If that fails, try the analytics endpoint
-            try:
-                # Alternative: use analytics endpoint which might have call data
-                endpoint = "/telephony/analytics/calls"
-                if location_id:
-                    endpoint = f"/telephony/config/locations/{location_id}/analytics/calls"
-                response = await self._request("GET", endpoint, params=params)
+            # The API may return items directly or in a data structure
+            if isinstance(response, list):
+                return response
+            elif "items" in response:
                 return response.get("items", [])
-            except Exception:
-                # Last resort: try the legacy callHistory endpoint
-                try:
-                    response = await self._request("GET", "/telephony/calls/callHistory", params=params)
-                    return response.get("items", [])
-                except Exception as inner_e:
-                    raise Exception(
-                        f"Unable to retrieve call detail records. "
-                        f"Tried multiple endpoints. Last error: {str(inner_e)}. "
-                        f"Ensure you have admin permissions and call history is enabled for your organization."
-                    )
+            elif "data" in response:
+                return response.get("data", [])
+            else:
+                # Return the full response if structure is unexpected
+                return [response] if response else []
+        except Exception as e:
+            error_msg = str(e)
+            # Provide helpful error message based on common issues
+            if "403" in error_msg or "Forbidden" in error_msg:
+                raise Exception(
+                    f"Access denied (403 Forbidden). "
+                    f"You need the 'Webex Calling Detailed Call History API access' role. "
+                    f"This role must be assigned by another administrator - you cannot assign it to yourself. "
+                    f"Contact your Webex administrator to assign this role to your account. "
+                    f"Original error: {error_msg}"
+                )
+            elif "401" in error_msg or "Unauthorized" in error_msg:
+                raise Exception(
+                    f"Authentication failed. Check your access token and ensure it has the required scopes. "
+                    f"Original error: {error_msg}"
+                )
+            else:
+                raise Exception(
+                    f"Failed to retrieve call detail records from {endpoint}. "
+                    f"Error: {error_msg}. "
+                    f"Ensure you have the 'Webex Calling Detailed Call History API access' role assigned."
+                )
 
     async def get_call_analytics(
         self,

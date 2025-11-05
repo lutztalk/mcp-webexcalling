@@ -521,17 +521,17 @@ async def list_tools() -> list[Tool]:
         # Reporting and Analytics Tools
         Tool(
             name="get_call_detail_records",
-            description="Get call detail records (CDRs) for reporting",
+            description="Get call detail records (CDRs) for reporting. Requires 'Webex Calling Detailed Call History API access' role. API documentation: https://developer.webex.com/calling/docs/api/v1/reports-detailed-call-history/get-detailed-call-history",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "start_time": {
                         "type": "string",
-                        "description": "Start time in ISO 8601 format (e.g., 2024-01-01T00:00:00Z)",
+                        "description": "Start time in ISO 8601 format (e.g., 2024-01-01T00:00:00Z) - REQUIRED",
                     },
                     "end_time": {
                         "type": "string",
-                        "description": "End time in ISO 8601 format (e.g., 2024-01-31T23:59:59Z)",
+                        "description": "End time in ISO 8601 format (e.g., 2024-01-31T23:59:59Z) - REQUIRED",
                     },
                     "person_id": {
                         "type": "string",
@@ -547,7 +547,7 @@ async def list_tools() -> list[Tool]:
                         "default": 100,
                     },
                 },
-                "required": [],
+                "required": ["start_time", "end_time"],
             },
         ),
         Tool(
