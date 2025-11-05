@@ -62,13 +62,49 @@ async def test_call_detail_records():
         if records:
             print(f"\n📊 Sample Call Record:")
             sample = records[0]
-            print(f"   Call ID: {sample.get('id', 'N/A')}")
-            print(f"   Direction: {sample.get('direction', 'N/A')}")
-            print(f"   Duration: {sample.get('duration', 'N/A')} seconds")
-            print(f"   Start Time: {sample.get('startTime', 'N/A')}")
-            print(f"   From: {sample.get('from', {}).get('phoneNumber', 'N/A')}")
-            print(f"   To: {sample.get('to', {}).get('phoneNumber', 'N/A')}")
-            print(f"   Status: {sample.get('status', 'N/A')}")
+            
+            # Debug: Print the actual structure to see what fields are available
+            print(f"   📋 Record structure (first 3 keys): {list(sample.keys())[:10]}")
+            print()
+            
+            # Try different possible field names
+            call_id = sample.get('id') or sample.get('callId') or sample.get('call_id') or sample.get('callID')
+            direction = sample.get('direction') or sample.get('callDirection') or sample.get('call_direction')
+            duration = sample.get('duration') or sample.get('callDuration') or sample.get('call_duration') or sample.get('durationSeconds')
+            start_time = sample.get('startTime') or sample.get('start_time') or sample.get('start') or sample.get('callStartTime')
+            
+            # Handle 'from' and 'to' - could be objects or strings
+            from_info = sample.get('from') or sample.get('fromNumber') or sample.get('caller')
+            to_info = sample.get('to') or sample.get('toNumber') or sample.get('called')
+            
+            if isinstance(from_info, dict):
+                from_number = from_info.get('phoneNumber') or from_info.get('number') or from_info.get('phone') or from_info.get('address')
+            elif isinstance(from_info, str):
+                from_number = from_info
+            else:
+                from_number = None
+            
+            if isinstance(to_info, dict):
+                to_number = to_info.get('phoneNumber') or to_info.get('number') or to_info.get('phone') or to_info.get('address')
+            elif isinstance(to_info, str):
+                to_number = to_info
+            else:
+                to_number = None
+            
+            status = sample.get('status') or sample.get('callStatus') or sample.get('call_status') or sample.get('result')
+            
+            print(f"   Call ID: {call_id or 'N/A'}")
+            print(f"   Direction: {direction or 'N/A'}")
+            print(f"   Duration: {duration or 'N/A'} seconds")
+            print(f"   Start Time: {start_time or 'N/A'}")
+            print(f"   From: {from_number or 'N/A'}")
+            print(f"   To: {to_number or 'N/A'}")
+            print(f"   Status: {status or 'N/A'}")
+            
+            # Print full record for debugging (first 500 chars)
+            print(f"\n   🔍 Full record (sample):")
+            import json
+            print(f"   {json.dumps(sample, indent=2, default=str)[:500]}...")
         else:
             print("   ⚠️  No call records found in the specified time range")
         
@@ -76,8 +112,7 @@ async def test_call_detail_records():
         print(f"\n🔍 Test 2: Calculating PSTN minutes...")
         pstn_data = await client.get_pstn_minutes(
             start_time=start_time_str,
-            end_time=end_time_str,
-            max_results=100
+            end_time=end_time_str
         )
         
         print(f"✅ PSTN Calculation Complete!")
