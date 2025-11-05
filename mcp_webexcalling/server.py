@@ -1222,20 +1222,20 @@ async def list_tools() -> list[Tool]:
                 "required": ["person_id", "start_time", "end_time"],
             },
         ),
-        Tool(
-            name="get_pstn_minutes",
-            description="Get PSTN (Public Switched Telephone Network) minutes for a person or location. Calculates total external call minutes from call detail records.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "person_id": {"type": "string", "description": "User ID (optional)"},
-                    "location_id": {"type": "string", "description": "Location ID (optional)"},
-                    "start_time": {"type": "string", "description": "Start time in ISO 8601 format (e.g., 2024-01-01T00:00:00Z)"},
-                    "end_time": {"type": "string", "description": "End time in ISO 8601 format (e.g., 2024-01-31T23:59:59Z)"},
+            Tool(
+                name="get_call_statistics_from_cdr",
+                description="Get call statistics for a person or location from call detail records. Calculates total minutes, seconds, and call count from all calls.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "person_id": {"type": "string", "description": "User ID (optional)"},
+                        "location_id": {"type": "string", "description": "Location ID (optional)"},
+                        "start_time": {"type": "string", "description": "Start time in ISO 8601 format (e.g., 2024-01-01T00:00:00Z)"},
+                        "end_time": {"type": "string", "description": "End time in ISO 8601 format (e.g., 2024-01-31T23:59:59Z)"},
+                    },
+                    "required": [],
                 },
-                "required": [],
-            },
-        ),
+            ),
         # Webhook Management
         Tool(
             name="list_webhooks",
@@ -1995,12 +1995,12 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> Sequence[TextConten
             )
             return [TextContent(type="text", text=format_json(result))]
 
-        elif name == "get_pstn_minutes":
+        elif name == "get_call_statistics_from_cdr":
             person_id = arguments.get("person_id")
             location_id = arguments.get("location_id")
             start_time = arguments.get("start_time")
             end_time = arguments.get("end_time")
-            result = await client.get_pstn_minutes(
+            result = await client.get_call_statistics_from_cdr(
                 person_id=person_id,
                 location_id=location_id,
                 start_time=start_time,

@@ -1380,16 +1380,16 @@ class WebexClient:
         response = await self._request("GET", "/telephony/calls/metrics", params=params)
         return response.get("metrics", {})
 
-    async def get_pstn_minutes(
+    async def get_call_statistics_from_cdr(
         self,
         person_id: Optional[str] = None,
         location_id: Optional[str] = None,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Get PSTN (Public Switched Telephone Network) minutes for a person or location
+        """Get call statistics for a person or location from call detail records
         
-        Calculates total PSTN minutes from call detail records by filtering for external calls.
+        Calculates total minutes and seconds from all call detail records.
         """
         # Get call detail records
         call_records = await self.get_call_detail_records(
@@ -1400,50 +1400,18 @@ class WebexClient:
             max_results=1000
         )
         
-        # Filter for PSTN calls (external calls, not internal)
-        # Based on actual API response structure with field names like "Call type", "Direction", etc.
-        pstn_calls = []
+        # Calculate statistics for all calls
         total_minutes = 0
         total_seconds = 0
+        completed_calls = []
         
         for call in call_records:
             # Use actual field names from API response
             call_duration = call.get("Duration", 0) or call.get("duration", 0)  # in seconds
-            call_type = call.get("Call type", "") or call.get("callType", "") or ""
-            direction = call.get("Direction", "") or call.get("direction", "") or ""
-            calling_line_id = call.get("Calling line ID", "") or call.get("callingLineId", "") or ""
-            called_line_id = call.get("Called line ID", "") or call.get("calledLineId", "") or ""
             
-            # PSTN calls are typically:
-            # - Call type is PSTN or has PSTN indicators
-            # - Not SIP_ENTERPRISE (internal calls)
-            # - Has duration > 0 (completed calls)
-            # - May have external/international indicators
-            is_pstn = False
-            
-            # Check call type - PSTN calls typically have PSTN in the type
-            call_type_lower = call_type.upper()
-            if "PSTN" in call_type_lower:
-                is_pstn = True
-            elif "SIP_ENTERPRISE" in call_type_lower or "ENTERPRISE" in call_type_lower:
-                # Internal enterprise calls are not PSTN
-                is_pstn = False
-            elif "TRUNK" in call_type_lower:
-                # Trunk calls are typically PSTN
-                is_pstn = True
-            
-            # Also check if calling/called line IDs indicate external numbers
-            # (e.g., not internal extensions, may have country codes, etc.)
-            if not is_pstn and calling_line_id and called_line_id:
-                # If line IDs are not "NA" and don't look like internal extensions, might be PSTN
-                if calling_line_id != "NA" and called_line_id != "NA":
-                    # Check if they look like phone numbers (have + or country codes)
-                    if "+" in calling_line_id or "+" in called_line_id:
-                        is_pstn = True
-            
-            # Only count completed calls with duration > 0
-            if is_pstn and call_duration > 0:
-                pstn_calls.append(call)
+            # Count all calls with duration > 0 (completed calls)
+            if call_duration > 0:
+                completed_calls.append(call)
                 total_seconds += call_duration
         
         # Convert seconds to minutes
@@ -1454,10 +1422,10 @@ class WebexClient:
             "locationId": location_id,
             "startTime": start_time,
             "endTime": end_time,
-            "totalPSTNMinutes": round(total_minutes, 2),
-            "totalPSTNSeconds": total_seconds,
-            "totalPSTNCalls": len(pstn_calls),
-            "calls": pstn_calls[:100]  # Return first 100 for details
+            "totalMinutes": round(total_minutes, 2),
+            "totalSeconds": total_seconds,
+            "totalCalls": len(completed_calls),
+            "calls": completed_calls[:100]  # Return first 100 for details
         }
 
     async def get_call_statistics(

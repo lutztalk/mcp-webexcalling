@@ -100,17 +100,17 @@ async def test_call_detail_records():
         else:
             print("   ⚠️  No call records found in the specified time range")
         
-        # Test 2: Get PSTN minutes
-        print(f"\n🔍 Test 2: Calculating PSTN minutes...")
-        pstn_data = await client.get_pstn_minutes(
+        # Test 2: Get call statistics
+        print(f"\n🔍 Test 2: Calculating call statistics...")
+        call_stats = await client.get_call_statistics_from_cdr(
             start_time=start_time_str,
             end_time=end_time_str
         )
         
-        print(f"✅ PSTN Calculation Complete!")
-        print(f"   Total PSTN Minutes: {pstn_data.get('totalPSTNMinutes', 0)}")
-        print(f"   Total PSTN Calls: {pstn_data.get('totalPSTNCalls', 0)}")
-        print(f"   Total PSTN Seconds: {pstn_data.get('totalPSTNSeconds', 0)}")
+        print(f"✅ Call Statistics Calculation Complete!")
+        print(f"   Total Minutes: {call_stats.get('totalMinutes', 0)}")
+        print(f"   Total Calls: {call_stats.get('totalCalls', 0)}")
+        print(f"   Total Seconds: {call_stats.get('totalSeconds', 0)}")
         
         return True
         
