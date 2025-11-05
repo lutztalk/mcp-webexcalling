@@ -480,9 +480,16 @@ class WebexClient:
             
             # Format based on requested type
             if format_type == 'iso_ms':
-                # Include actual milliseconds (3 digits) - API expects this format
-                # Format: YYYY-MM-DDTHH:MM:SS.mmmZ
-                milliseconds = dt.microsecond // 1000  # Convert microseconds to milliseconds
+                # Include actual milliseconds (3 digits) - API REQUIRES this format
+                # Format: YYYY-MM-DDTHH:MM:SS.mmmZ (e.g., 2022-06-08T21:27:00.604Z)
+                # Convert microseconds to milliseconds (0-999)
+                milliseconds = dt.microsecond // 1000
+                # If microseconds are 0, use a small random value to ensure we have actual milliseconds
+                # This prevents .000Z which might not be accepted
+                if milliseconds == 0:
+                    # Use a small offset to ensure we have non-zero milliseconds
+                    # This is better than .000Z which the API might reject
+                    milliseconds = 1
                 return dt.strftime(f"%Y-%m-%dT%H:%M:%S.{milliseconds:03d}Z")
             elif format_type == 'iso':
                 return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -492,19 +499,18 @@ class WebexClient:
             else:
                 return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
         
-        # API expects dates with actual milliseconds (not .000, but real millisecond values)
-        # Example from API docs: 2022-06-09T23:27:18.604Z
-        # Try with milliseconds first (this is what the API expects based on the screenshot)
+        # API REQUIRES ISO 8601 format with milliseconds: YYYY-MM-DDTHH:MM:SS.mmmZ
+        # According to API docs: "Must be formatted as YYYY-MM-DDTHH:MM:SS.mmmZ"
+        # Example: "2022-06-08T21:27:00.604Z"
+        # DO NOT use epoch timestamps - API explicitly requires ISO format
+        
+        # Format with actual milliseconds (required by API)
         start_time_iso_ms = format_date_for_api(start_time, format_type='iso_ms')
         end_time_iso_ms = format_date_for_api(end_time, format_type='iso_ms')
         
-        # Also try without milliseconds as fallback
+        # Also try without milliseconds as fallback (though API docs say .mmm is required)
         start_time_iso = format_date_for_api(start_time, format_type='iso')
         end_time_iso = format_date_for_api(end_time, format_type='iso')
-        
-        # Try epoch timestamps as last resort
-        start_time_epoch = format_date_for_api(start_time, format_type='epoch')
-        end_time_epoch = format_date_for_api(end_time, format_type='epoch')
         
         # Build base parameters (using ISO format WITH milliseconds - API expects this)
         base_params = {
@@ -521,28 +527,24 @@ class WebexClient:
             base_params["max"] = max_results
         
         # Try different parameter variations
-        # Based on API screenshot, dates should have actual milliseconds (e.g., 2022-06-09T23:27:18.604Z)
+        # API REQUIRES: YYYY-MM-DDTHH:MM:SS.mmmZ format (ISO 8601 with milliseconds)
+        # DO NOT use epoch timestamps - API will reject them with "Required argument type is invalid"
         param_variations = [
-            # 1. Minimal parameters with ISO format WITH milliseconds (API expects this) - try this first
+            # 1. Minimal parameters with ISO format WITH milliseconds (REQUIRED by API) - try this first
             {
                 "startTime": start_time_iso_ms,
                 "endTime": end_time_iso_ms,
             },
-            # 2. ISO format without milliseconds (fallback)
+            # 2. Standard format with all parameters (ISO with ms)
+            base_params.copy(),
+            # 3. Without max parameter
+            {k: v for k, v in base_params.items() if k != "max"},
+            # 4. Without location parameter
+            {k: v for k, v in base_params.items() if k != "locations"},
+            # 5. ISO format without milliseconds (fallback - though API docs say .mmm is required)
             {
                 "startTime": start_time_iso,
                 "endTime": end_time_iso,
-            },
-            # 3. Standard format with all parameters (ISO with ms)
-            base_params.copy(),
-            # 4. Without max parameter
-            {k: v for k, v in base_params.items() if k != "max"},
-            # 5. Without location parameter
-            {k: v for k, v in base_params.items() if k != "locations"},
-            # 6. Epoch timestamps (last resort)
-            {
-                "startTime": start_time_epoch,
-                "endTime": end_time_epoch,
             },
         ]
         
