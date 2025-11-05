@@ -24,23 +24,25 @@ async def test_call_detail_records():
     print("🔧 Initializing Webex Client...")
     client = WebexClient(access_token=access_token)
     
-    # Calculate date range (last 7 days)
+    # Calculate date range
+    # IMPORTANT: API requires dates to be between 5 minutes ago and 48 hours ago
     from datetime import timezone
-    end_time = datetime.now(timezone.utc)
-    start_time = end_time - timedelta(days=7)
+    now = datetime.now(timezone.utc)
     
-    # Format as ISO 8601 (try different formats)
-    # Format 1: Standard ISO 8601 with milliseconds
+    # Use a range within the last 24 hours (well within the 48 hour limit)
+    # End time: 1 hour ago (more than 5 minutes)
+    end_time = now - timedelta(hours=1)
+    # Start time: 24 hours ago (within 48 hour limit)
+    start_time = now - timedelta(hours=24)
+    
+    # Format as ISO 8601 with milliseconds (API requires this format)
     start_time_str = start_time.strftime("%Y-%m-%dT%H:%M:%S.000Z")
     end_time_str = end_time.strftime("%Y-%m-%dT%H:%M:%S.000Z")
     
-    # Format 2: ISO 8601 without milliseconds (may be required)
-    start_time_str_alt = start_time.strftime("%Y-%m-%dT%H:%M:%SZ")
-    end_time_str_alt = end_time.strftime("%Y-%m-%dT%H:%M:%SZ")
-    
     print(f"\n📅 Testing Call Detail Records API")
-    print(f"   Start Time: {start_time_str}")
-    print(f"   End Time: {end_time_str}")
+    print(f"   ⚠️  Note: API requires dates between 5 minutes and 48 hours ago")
+    print(f"   Start Time: {start_time_str} (24 hours ago)")
+    print(f"   End Time: {end_time_str} (1 hour ago)")
     print(f"   Base URL: https://analytics.webexapis.com/v1")
     print(f"   Endpoint: /cdr_feed")
     print(f"   Full URL: https://analytics.webexapis.com/v1/cdr_feed")

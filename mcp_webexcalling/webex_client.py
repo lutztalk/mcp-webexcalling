@@ -449,7 +449,7 @@ class WebexClient:
                     if 'T' in cleaned:
                         # Parse ISO format with or without milliseconds
                         if '.' in cleaned and 'Z' in cleaned:
-                            # Has milliseconds: 2022-06-09T23:27:18.604Z
+                            # Has milliseconds: 2022-06-09T23:27:18.604Z or 2022-06-09T23:27:18.000Z
                             dt_str = cleaned.replace('Z', '+00:00')
                             dt = datetime.fromisoformat(dt_str)
                         elif 'Z' in cleaned:
@@ -467,10 +467,25 @@ class WebexClient:
                         if dt.tzinfo is None:
                             dt = dt.replace(tzinfo=timezone.utc)
                 except Exception as e:
-                    # If parsing fails, try to clean and return
-                    if cleaned.endswith(".000Z"):
-                        cleaned = cleaned.replace(".000Z", "Z")
-                    # If still can't parse, return as-is
+                    # If parsing fails and format_type is 'iso_ms', we MUST add milliseconds
+                    # Don't return a string without milliseconds - API requires them
+                    if format_type == 'iso_ms':
+                        # Try to extract date parts and add milliseconds
+                        # If it has .000Z, keep it but we'll replace with actual milliseconds
+                        if cleaned.endswith(".000Z") or cleaned.endswith("Z"):
+                            # Try to parse without the Z and add milliseconds
+                            try:
+                                clean_no_z = cleaned.replace('Z', '').replace('.000', '')
+                                if 'T' in clean_no_z:
+                                    dt_temp = datetime.fromisoformat(clean_no_z)
+                                    dt_temp = dt_temp.replace(tzinfo=timezone.utc)
+                                    milliseconds = dt_temp.microsecond // 1000
+                                    if milliseconds == 0:
+                                        milliseconds = 1
+                                    return dt_temp.strftime(f"%Y-%m-%dT%H:%M:%S.{milliseconds:03d}Z")
+                            except:
+                                pass
+                    # If we can't parse, return as-is (but this should rarely happen)
                     return cleaned
             else:
                 # Already a datetime object
@@ -502,17 +517,13 @@ class WebexClient:
         # API REQUIRES ISO 8601 format with milliseconds: YYYY-MM-DDTHH:MM:SS.mmmZ
         # According to API docs: "Must be formatted as YYYY-MM-DDTHH:MM:SS.mmmZ"
         # Example: "2022-06-08T21:27:00.604Z"
-        # DO NOT use epoch timestamps - API explicitly requires ISO format
+        # DO NOT use formats without milliseconds - API will reject them
         
-        # Format with actual milliseconds (required by API)
+        # Format with actual milliseconds (REQUIRED by API - no exceptions)
         start_time_iso_ms = format_date_for_api(start_time, format_type='iso_ms')
         end_time_iso_ms = format_date_for_api(end_time, format_type='iso_ms')
         
-        # Also try without milliseconds as fallback (though API docs say .mmm is required)
-        start_time_iso = format_date_for_api(start_time, format_type='iso')
-        end_time_iso = format_date_for_api(end_time, format_type='iso')
-        
-        # Build base parameters (using ISO format WITH milliseconds - API expects this)
+        # Build base parameters (using ISO format WITH milliseconds - API REQUIRES this)
         base_params = {
             "startTime": start_time_iso_ms,
             "endTime": end_time_iso_ms,
@@ -528,7 +539,7 @@ class WebexClient:
         
         # Try different parameter variations
         # API REQUIRES: YYYY-MM-DDTHH:MM:SS.mmmZ format (ISO 8601 with milliseconds)
-        # DO NOT use epoch timestamps - API will reject them with "Required argument type is invalid"
+        # DO NOT try formats without milliseconds - API will reject with "Invalid input string"
         param_variations = [
             # 1. Minimal parameters with ISO format WITH milliseconds (REQUIRED by API) - try this first
             {
@@ -541,11 +552,7 @@ class WebexClient:
             {k: v for k, v in base_params.items() if k != "max"},
             # 4. Without location parameter
             {k: v for k, v in base_params.items() if k != "locations"},
-            # 5. ISO format without milliseconds (fallback - though API docs say .mmm is required)
-            {
-                "startTime": start_time_iso,
-                "endTime": end_time_iso,
-            },
+            # Note: We do NOT try without milliseconds - API explicitly requires .mmm format
         ]
         
         # Note: person_id is not directly supported by /cdr_feed endpoint
@@ -570,34 +577,67 @@ class WebexClient:
             for param_set in param_variations:
                 attempt_count += 1
                 try:
-                    # Log what we're trying (for debugging)
-                    date_format_used = f"{param_set.get('startTime', '')[:20]}..."
-                    if attempt_count <= 3:  # Only log first few attempts
-                        pass  # Could add logging here if needed
-                    
                     response = await self._request("GET", endpoint, params=param_set)
                     # If successful, break out of loop
                     break
                 except Exception as e:
                     last_error = e
                     error_str = str(e)
-                    # If it's a 400 error about invalid input, try next parameter variation
+                    # If it's a 400 error about invalid input/string, try next parameter variation
+                    # (but all variations use milliseconds format as required by API)
                     if "400" in error_str and ("invalid" in error_str.lower() or "input" in error_str.lower() or "string" in error_str.lower()):
-                        # Try next variation
+                        # Try next variation (different parameter combinations, but all with milliseconds)
                         if attempt_count < len(param_variations):
                             continue
-                    # For other errors, raise immediately
+                    # For other errors (401, 403, etc.), raise immediately
                     raise
             
             if response is None and last_error:
                 # All parameter variations failed
                 # Provide helpful error message with what we tried
                 error_msg = str(last_error)
+                
+                # Check if dates are in valid range (API requires 5 minutes to 48 hours ago)
+                from datetime import datetime, timezone, timedelta
+                now = datetime.now(timezone.utc)
+                min_time = now - timedelta(hours=48)
+                max_time = now - timedelta(minutes=5)
+                
+                try:
+                    start_dt = datetime.fromisoformat(start_time_iso_ms.replace('Z', '+00:00'))
+                    end_dt = datetime.fromisoformat(end_time_iso_ms.replace('Z', '+00:00'))
+                    
+                    date_range_issues = []
+                    if start_dt < min_time:
+                        date_range_issues.append(f"startTime ({start_time_iso_ms}) is more than 48 hours ago")
+                    if start_dt > max_time:
+                        date_range_issues.append(f"startTime ({start_time_iso_ms}) is less than 5 minutes ago")
+                    if end_dt < min_time:
+                        date_range_issues.append(f"endTime ({end_time_iso_ms}) is more than 48 hours ago")
+                    if end_dt > max_time:
+                        date_range_issues.append(f"endTime ({end_time_iso_ms}) is less than 5 minutes ago")
+                    if start_dt > end_dt:
+                        date_range_issues.append(f"startTime must be before endTime")
+                    
+                    if date_range_issues:
+                        range_msg = "\n".join([f"  - {issue}" for issue in date_range_issues])
+                        raise Exception(
+                            f"Failed to retrieve call detail records. "
+                            f"Date range validation failed:\n{range_msg}\n\n"
+                            f"API requires: startTime and endTime must be between 5 minutes ago and 48 hours ago. "
+                            f"Last API error: {error_msg}"
+                        )
+                except:
+                    pass  # If we can't parse dates, just show the original error
+                
                 raise Exception(
-                    f"Failed to retrieve call detail records after trying {len(param_variations)} different parameter formats. "
+                    f"Failed to retrieve call detail records after trying {len(param_variations)} different parameter combinations. "
                     f"Last error: {error_msg}. "
-                    f"\n\nTried date formats: ISO 8601 (with/without milliseconds) and epoch timestamps. "
-                    f"If the API expects a different format, please check the API documentation."
+                    f"\n\nDate format used: {start_time_iso_ms} to {end_time_iso_ms} "
+                    f"(ISO 8601 with milliseconds as required by API). "
+                    f"\n\nNote: API requires dates to be between 5 minutes ago and 48 hours ago. "
+                    f"If dates are in range, the format may still be incorrect. "
+                    f"Please check the API documentation for the exact expected format."
                 )
             
             # The API returns a list of call records directly
