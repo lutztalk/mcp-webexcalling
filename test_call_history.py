@@ -25,12 +25,18 @@ async def test_call_detail_records():
     client = WebexClient(access_token=access_token)
     
     # Calculate date range (last 7 days)
-    end_time = datetime.utcnow()
+    from datetime import timezone
+    end_time = datetime.now(timezone.utc)
     start_time = end_time - timedelta(days=7)
     
-    # Format as ISO 8601
+    # Format as ISO 8601 (try different formats)
+    # Format 1: Standard ISO 8601 with milliseconds
     start_time_str = start_time.strftime("%Y-%m-%dT%H:%M:%S.000Z")
     end_time_str = end_time.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    
+    # Format 2: ISO 8601 without milliseconds (may be required)
+    start_time_str_alt = start_time.strftime("%Y-%m-%dT%H:%M:%SZ")
+    end_time_str_alt = end_time.strftime("%Y-%m-%dT%H:%M:%SZ")
     
     print(f"\n📅 Testing Call Detail Records API")
     print(f"   Start Time: {start_time_str}")

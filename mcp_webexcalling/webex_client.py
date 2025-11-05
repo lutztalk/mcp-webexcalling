@@ -48,11 +48,17 @@ class WebexClient:
                         error_msg += f": {error_body['message']}"
                     elif "errors" in error_body:
                         error_msg += f": {error_body['errors']}"
+                    elif "error" in error_body:
+                        error_msg += f": {error_body['error']}"
+                    elif "description" in error_body:
+                        error_msg += f": {error_body['description']}"
                 except:
                     error_msg += f": {e.response.text[:200]}"
                 
                 # Provide helpful context for common errors
-                if e.response.status_code == 401:
+                if e.response.status_code == 400:
+                    error_msg += " (Bad Request - check parameter formats, especially date/time formats)"
+                elif e.response.status_code == 401:
                     error_msg += " (Authentication failed - check your access token)"
                 elif e.response.status_code == 403:
                     error_msg += " (Permission denied - ensure you have admin access and required scopes)"
@@ -404,18 +410,79 @@ class WebexClient:
             raise ValueError("end_time is required for call detail records")
         
         # Build query parameters according to API documentation
-        params = {
-            "startTime": start_time,
-            "endTime": end_time,
+        # The API expects ISO 8601 format dates in UTC
+        # Format dates properly - ensure they're strings in correct format
+        
+        def format_date_for_api(date_val, with_milliseconds=False):
+            """Format date for API - handles both string and datetime objects"""
+            if isinstance(date_val, str):
+                # If it's already a string, validate and clean it
+                cleaned = date_val.strip()
+                # Remove any .000 if present
+                if cleaned.endswith(".000Z"):
+                    cleaned = cleaned.replace(".000Z", "Z")
+                elif cleaned.endswith(".000+00:00"):
+                    cleaned = cleaned.replace(".000+00:00", "Z")
+                # Ensure Z suffix for UTC
+                if not cleaned.endswith("Z") and not cleaned.endswith("+00:00"):
+                    if "+" not in cleaned and "-" not in cleaned[-6:]:
+                        cleaned = cleaned + "Z"
+                return cleaned
+            else:
+                # Format datetime object to ISO 8601
+                from datetime import timezone
+                if hasattr(date_val, 'strftime'):
+                    # Ensure it's timezone-aware
+                    if date_val.tzinfo is None:
+                        date_val = date_val.replace(tzinfo=timezone.utc)
+                    # Format based on preference
+                    if with_milliseconds:
+                        return date_val.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+                    else:
+                        return date_val.strftime("%Y-%m-%dT%H:%M:%SZ")
+            return str(date_val)
+        
+        # Try without milliseconds first (most APIs prefer this)
+        start_time_formatted = format_date_for_api(start_time, with_milliseconds=False)
+        end_time_formatted = format_date_for_api(end_time, with_milliseconds=False)
+        
+        # Also create variations for trying
+        start_time_with_ms = format_date_for_api(start_time, with_milliseconds=True)
+        end_time_with_ms = format_date_for_api(end_time, with_milliseconds=True)
+        
+        # Build base parameters
+        base_params = {
+            "startTime": start_time_formatted,
+            "endTime": end_time_formatted,
         }
         
         # Optional filters
         if location_id:
             # API uses "locations" parameter (may accept comma-separated list)
-            params["locations"] = location_id
+            base_params["locations"] = location_id
         
         if max_results:
-            params["max"] = max_results
+            base_params["max"] = max_results
+        
+        # Try different parameter variations
+        param_variations = [
+            # 1. Minimal parameters (only startTime and endTime) - try this first
+            {
+                "startTime": start_time_formatted,
+                "endTime": end_time_formatted,
+            },
+            # 2. With dates including milliseconds
+            {
+                "startTime": start_time_with_ms,
+                "endTime": end_time_with_ms,
+            },
+            # 3. Standard format with all parameters
+            base_params.copy(),
+            # 4. Without max parameter (in case it causes issues)
+            {k: v for k, v in base_params.items() if k != "max"},
+            # 5. Without location parameter (in case it causes issues)
+            {k: v for k, v in base_params.items() if k != "locations"},
+        ]
         
         # Note: person_id is not directly supported by /cdr_feed endpoint
         # We'll filter by person_id after retrieving records if needed
@@ -428,11 +495,32 @@ class WebexClient:
         
         # Temporarily switch to analytics base URL
         original_base = self.base_url
+        last_error = None
+        
         try:
             self.base_url = analytics_base_url
-            response = await self._request("GET", endpoint, params=params)
             
-            # The API returns a list of call records
+            # Try different parameter variations
+            response = None
+            for param_set in param_variations:
+                try:
+                    response = await self._request("GET", endpoint, params=param_set)
+                    # If successful, break out of loop
+                    break
+                except Exception as e:
+                    last_error = e
+                    error_str = str(e)
+                    # If it's a 400 error about invalid input, try next parameter variation
+                    if "400" in error_str and ("invalid" in error_str.lower() or "input" in error_str.lower() or "string" in error_str.lower()):
+                        continue  # Try next parameter variation
+                    # For other errors, raise immediately
+                    raise
+            
+            if response is None and last_error:
+                # All parameter variations failed
+                raise last_error
+            
+            # The API returns a list of call records directly
             records = []
             if isinstance(response, list):
                 records = response
@@ -444,6 +532,8 @@ class WebexClient:
                     records = response.get("data", [])
                 elif "calls" in response:
                     records = response.get("calls", [])
+                elif "cdr" in response:
+                    records = response.get("cdr", [])
                 else:
                     # Return the response as a single-item list if unexpected structure
                     records = [response] if response else []
