@@ -8,7 +8,7 @@ from mcp.server.stdio import stdio_server
 from mcp.types import Tool, TextContent
 
 from .webex_client import WebexClient
-from .config import get_settings
+from .config import get_settings, find_env_file
 
 
 # Initialize the MCP server
@@ -21,11 +21,22 @@ def get_client() -> WebexClient:
     global webex_client
     if webex_client is None:
         settings = get_settings()
+        # Verify token is loaded
+        if not settings.webex_access_token:
+            raise ValueError(
+                "WEBEX_ACCESS_TOKEN not found. Please set it in .env file or environment variables."
+            )
         webex_client = WebexClient(
             access_token=settings.webex_access_token,
             base_url=settings.webex_base_url,
         )
     return webex_client
+
+
+def reset_client():
+    """Reset the cached client (useful for testing or reloading config)"""
+    global webex_client
+    webex_client = None
 
 
 @server.list_tools()
@@ -1390,7 +1401,18 @@ async def list_tools() -> list[Tool]:
 @server.call_tool()
 async def call_tool(name: str, arguments: dict[str, Any]) -> Sequence[TextContent]:
     """Handle tool calls"""
-    client = get_client()
+    try:
+        client = get_client()
+    except ValueError as e:
+        # Token not found - provide helpful error message
+        return [TextContent(
+            type="text",
+            text=f"Configuration error: {str(e)}\n\n"
+                 f"Please ensure WEBEX_ACCESS_TOKEN is set in:\n"
+                 f"1. The .env file at: {find_env_file()}\n"
+                 f"2. Or as an environment variable: WEBEX_ACCESS_TOKEN\n\n"
+                 f"If using Claude Desktop, check your claude_desktop_config.json file."
+        )]
 
     try:
         if name == "get_organization_info":

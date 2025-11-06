@@ -621,12 +621,8 @@ class WebexClient:
                 # Format: YYYY-MM-DDTHH:MM:SS.mmmZ (e.g., 2022-06-08T21:27:00.604Z)
                 # Convert microseconds to milliseconds (0-999)
                 milliseconds = dt.microsecond // 1000
-                # If microseconds are 0, use a small random value to ensure we have actual milliseconds
-                # This prevents .000Z which might not be accepted
-                if milliseconds == 0:
-                    # Use a small offset to ensure we have non-zero milliseconds
-                    # This is better than .000Z which the API might reject
-                    milliseconds = 1
+                # Use .000Z format (test script shows this works)
+                # The API accepts .000Z format based on the test script
                 return dt.strftime(f"%Y-%m-%dT%H:%M:%S.{milliseconds:03d}Z")
             elif format_type == 'iso':
                 return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -1569,15 +1565,84 @@ class WebexClient:
         """Get call statistics for a person or location from call detail records
         
         Calculates total minutes and seconds from all call detail records.
+        
+        If start_time or end_time are not provided, automatically calculates a range
+        within the last 48 hours (API requirement: dates must be between 5 minutes and 48 hours ago).
         """
+        from datetime import datetime, timezone, timedelta
+        
+        # If times not provided, calculate a default range
+        # API requires: end time must be at least 5 minutes ago, and start time must be within 48 hours
+        now = datetime.now(timezone.utc)
+        
+        # Handle end_time (treat empty string as None)
+        if not end_time or (isinstance(end_time, str) and end_time.strip() == ""):
+            # Default: 1 hour ago (well within the 5 minutes requirement)
+            end_time_dt = now - timedelta(hours=1)
+        else:
+            # Parse the provided end_time
+            if isinstance(end_time, str):
+                try:
+                    end_time_dt = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+                except:
+                    end_time_dt = now - timedelta(hours=1)
+            else:
+                end_time_dt = end_time
+        
+        # Handle start_time (treat empty string as None)
+        if not start_time or (isinstance(start_time, str) and start_time.strip() == ""):
+            # Default: 24 hours before end_time (within 48 hour limit)
+            start_time_dt = end_time_dt - timedelta(hours=24)
+        else:
+            # Parse the provided start_time
+            if isinstance(start_time, str):
+                try:
+                    start_time_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                except:
+                    start_time_dt = end_time_dt - timedelta(hours=24)
+            else:
+                start_time_dt = start_time
+        
+        # Ensure times meet API requirements:
+        # - End time must be at least 5 minutes ago
+        # - Start time must be within 48 hours of now
+        min_end_time = now - timedelta(minutes=5)
+        max_start_time = now - timedelta(hours=48)
+        
+        # Adjust end_time if it's too recent
+        if end_time_dt > min_end_time:
+            end_time_dt = min_end_time
+        
+        # Adjust start_time if it's too old
+        if start_time_dt < max_start_time:
+            start_time_dt = max_start_time
+        
+        # Ensure start_time is before end_time
+        if start_time_dt >= end_time_dt:
+            start_time_dt = end_time_dt - timedelta(hours=24)
+        
+        # Format dates using the simpler format from test script: YYYY-MM-DDTHH:MM:SS.000Z
+        start_time_str = start_time_dt.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        end_time_str = end_time_dt.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        
         # Get call detail records
-        call_records = await self.get_call_detail_records(
-            person_id=person_id,
-            location_id=location_id,
-            start_time=start_time,
-            end_time=end_time,
-            max_results=1000
-        )
+        try:
+            call_records = await self.get_call_detail_records(
+                person_id=person_id,
+                location_id=location_id,
+                start_time=start_time_str,
+                end_time=end_time_str,
+                max_results=1000
+            )
+        except Exception as e:
+            error_msg = str(e)
+            # Handle rate limiting
+            if "429" in error_msg or "Too Many Requests" in error_msg:
+                raise Exception(
+                    f"Rate limit exceeded (429). Please wait a few minutes before retrying. "
+                    f"Original error: {error_msg}"
+                )
+            raise
         
         # Calculate statistics for all calls
         total_minutes = 0
@@ -1599,8 +1664,8 @@ class WebexClient:
         return {
             "personId": person_id,
             "locationId": location_id,
-            "startTime": start_time,
-            "endTime": end_time,
+            "startTime": start_time_str,
+            "endTime": end_time_str,
             "totalMinutes": round(total_minutes, 2),
             "totalSeconds": total_seconds,
             "totalCalls": len(completed_calls),
