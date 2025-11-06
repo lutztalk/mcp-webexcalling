@@ -1672,6 +1672,177 @@ class WebexClient:
             "calls": completed_calls[:100]  # Return first 100 for details
         }
 
+    async def get_call_statistics_by_state(
+        self,
+        state: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+        direction: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Get call statistics filtered by state based on area codes
+        
+        Args:
+            state: State name (e.g., "North Carolina", "NC", "north carolina")
+            start_time: Optional start time (ISO 8601 format). If not provided, defaults to 24 hours ago
+            end_time: Optional end time (ISO 8601 format). If not provided, defaults to 1 hour ago
+            direction: Optional filter - "to" (calls TO the state), "from" (calls FROM the state), 
+                      or None (both directions)
+        
+        Returns:
+            Dictionary with call statistics including:
+            - totalCalls: Total number of calls
+            - totalMinutes: Total call duration in minutes
+            - totalSeconds: Total call duration in seconds
+            - callsToState: Number of calls TO the state
+            - callsFromState: Number of calls FROM the state
+            - state: The normalized state name
+            - areaCodes: List of area codes for the state
+        """
+        from .area_codes import (
+            get_area_codes_for_state,
+            normalize_state_name,
+            extract_area_code,
+        )
+        from datetime import datetime, timezone, timedelta
+        
+        # Normalize state name
+        normalized_state = normalize_state_name(state)
+        if not normalized_state:
+            raise ValueError(f"Invalid state name: {state}. Please provide a valid US state name.")
+        
+        # Get area codes for the state
+        area_codes = get_area_codes_for_state(normalized_state)
+        if not area_codes:
+            raise ValueError(f"No area codes found for state: {normalized_state}")
+        
+        # Calculate time range if not provided
+        now = datetime.now(timezone.utc)
+        
+        if not end_time:
+            end_time_dt = now - timedelta(hours=1)
+        else:
+            if isinstance(end_time, str):
+                try:
+                    end_time_dt = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+                except:
+                    end_time_dt = now - timedelta(hours=1)
+            else:
+                end_time_dt = end_time
+        
+        if not start_time:
+            start_time_dt = end_time_dt - timedelta(hours=24)
+        else:
+            if isinstance(start_time, str):
+                try:
+                    start_time_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                except:
+                    start_time_dt = end_time_dt - timedelta(hours=24)
+            else:
+                start_time_dt = start_time
+        
+        # Ensure times meet API requirements
+        min_end_time = now - timedelta(minutes=5)
+        max_start_time = now - timedelta(hours=48)
+        
+        if end_time_dt > min_end_time:
+            end_time_dt = min_end_time
+        if start_time_dt < max_start_time:
+            start_time_dt = max_start_time
+        if start_time_dt >= end_time_dt:
+            start_time_dt = end_time_dt - timedelta(hours=24)
+        
+        start_time_str = start_time_dt.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        end_time_str = end_time_dt.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        
+        # Get all call detail records
+        try:
+            call_records = await self.get_call_detail_records(
+                start_time=start_time_str,
+                end_time=end_time_str,
+                max_results=1000
+            )
+        except Exception as e:
+            error_msg = str(e)
+            if "429" in error_msg or "Too Many Requests" in error_msg:
+                raise Exception(
+                    f"Rate limit exceeded (429). Please wait a few minutes before retrying. "
+                    f"Original error: {error_msg}"
+                )
+            raise
+        
+        # Filter calls by state area codes
+        calls_to_state = []
+        calls_from_state = []
+        total_seconds_to = 0
+        total_seconds_from = 0
+        
+        for call in call_records:
+            # Get phone numbers from the call record
+            # CDR records use "Called number" and "Calling number" in E.164 format (e.g., "+12039247239")
+            calling_number = (
+                call.get("Calling number") or
+                call.get("calling_number") or
+                call.get("Caller ID number") or
+                call.get("caller_id_number") or
+                call.get("Calling line ID") or 
+                call.get("calling_line_id") or 
+                call.get("From") or 
+                call.get("from") or
+                ""
+            )
+            
+            called_number = (
+                call.get("Called number") or
+                call.get("called_number") or
+                call.get("User number") or
+                call.get("user_number") or
+                call.get("Called line ID") or 
+                call.get("called_line_id") or 
+                call.get("To") or 
+                call.get("to") or
+                ""
+            )
+            
+            # Extract area codes
+            calling_area_code = extract_area_code(str(calling_number))
+            called_area_code = extract_area_code(str(called_number))
+            
+            call_duration = call.get("Duration", 0) or call.get("duration", 0)
+            
+            # Check if call is TO the state (called number matches)
+            if called_area_code and called_area_code in area_codes:
+                if direction is None or direction.lower() == "to":
+                    calls_to_state.append(call)
+                    if call_duration > 0:
+                        total_seconds_to += call_duration
+            
+            # Check if call is FROM the state (calling number matches)
+            if calling_area_code and calling_area_code in area_codes:
+                if direction is None or direction.lower() == "from":
+                    calls_from_state.append(call)
+                    if call_duration > 0:
+                        total_seconds_from += call_duration
+        
+        # Calculate totals
+        total_calls = len(calls_to_state) + len(calls_from_state)
+        total_seconds = total_seconds_to + total_seconds_from
+        total_minutes = total_seconds / 60.0
+        
+        return {
+            "state": normalized_state,
+            "areaCodes": area_codes,
+            "startTime": start_time_str,
+            "endTime": end_time_str,
+            "totalCalls": total_calls,
+            "totalMinutes": round(total_minutes, 2),
+            "totalSeconds": total_seconds,
+            "callsToState": len(calls_to_state),
+            "callsFromState": len(calls_from_state),
+            "minutesToState": round(total_seconds_to / 60.0, 2),
+            "minutesFromState": round(total_seconds_from / 60.0, 2),
+            "calls": (calls_to_state + calls_from_state)[:100]  # Return first 100 for details
+        }
+
     async def get_call_statistics(
         self,
         start_time: str,

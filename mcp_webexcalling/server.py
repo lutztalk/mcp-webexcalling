@@ -1270,6 +1270,33 @@ async def list_tools() -> list[Tool]:
                     "required": [],
                 },
             ),
+            Tool(
+                name="get_call_statistics_by_state",
+                description="Get call statistics filtered by US state based on area codes. Analyzes calls TO and FROM a state by matching area codes. Example: 'How many calls to North Carolina were made in the last 48 hours?'",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "state": {
+                            "type": "string",
+                            "description": "US state name (e.g., 'North Carolina', 'NC', 'north carolina', 'California', 'CA')"
+                        },
+                        "start_time": {
+                            "type": "string",
+                            "description": "Optional start time in ISO 8601 format (e.g., 2024-01-01T00:00:00Z). Defaults to 24 hours ago if not provided."
+                        },
+                        "end_time": {
+                            "type": "string",
+                            "description": "Optional end time in ISO 8601 format (e.g., 2024-01-31T23:59:59Z). Defaults to 1 hour ago if not provided."
+                        },
+                        "direction": {
+                            "type": "string",
+                            "description": "Optional filter: 'to' (calls TO the state), 'from' (calls FROM the state), or omit for both directions",
+                            "enum": ["to", "from"]
+                        },
+                    },
+                    "required": ["state"],
+                },
+            ),
         # Webhook Management
         Tool(
             name="list_webhooks",
@@ -2064,6 +2091,19 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> Sequence[TextConten
                 location_id=location_id,
                 start_time=start_time,
                 end_time=end_time,
+            )
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "get_call_statistics_by_state":
+            state = arguments.get("state")
+            start_time = arguments.get("start_time")
+            end_time = arguments.get("end_time")
+            direction = arguments.get("direction")
+            result = await client.get_call_statistics_by_state(
+                state=state,
+                start_time=start_time,
+                end_time=end_time,
+                direction=direction,
             )
             return [TextContent(type="text", text=format_json(result))]
 
