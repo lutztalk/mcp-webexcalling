@@ -1,21 +1,128 @@
 """Webex API Client for interacting with Webex Calling APIs"""
 
-import httpx
+import asyncio
+import logging
+import random
+import urllib.parse
 from typing import Optional, Dict, Any, List
+
+import httpx
+
 from .config import get_settings
 
 
-class WebexClient:
-    """Client for interacting with Webex APIs"""
+logger = logging.getLogger("mcp_webexcalling")
 
-    def __init__(self, access_token: Optional[str] = None, base_url: Optional[str] = None):
-        settings = get_settings()
+
+# HTTP status codes that are worth retrying (transient server / throttling).
+_RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+
+# Page size cap enforced by the Webex APIs. Requests for more than this are
+# satisfied by following pagination ``Link`` headers.
+_WEBEX_PAGE_LIMIT = 100
+
+
+class WebexApiError(Exception):
+    """Raised when the Webex API returns an error response.
+
+    Carries the HTTP ``status_code`` (when available) so callers can branch on
+    it without parsing the message string.
+    """
+
+    def __init__(self, message: str, status_code: Optional[int] = None):
+        super().__init__(message)
+        self.status_code = status_code
+
+
+class WebexClient:
+    """Client for interacting with Webex APIs.
+
+    A single :class:`httpx.AsyncClient` is created lazily and reused across
+    requests for connection pooling. Call :meth:`aclose` (or use the client as
+    an async context manager) to release the connection pool.
+    """
+
+    def __init__(
+        self,
+        access_token: Optional[str] = None,
+        base_url: Optional[str] = None,
+        *,
+        timeout: Optional[float] = None,
+        max_retries: Optional[int] = None,
+        retry_backoff: Optional[float] = None,
+    ):
+        # Only consult settings for values the caller did not supply. This lets
+        # ``WebexClient(access_token="...")`` work without a .env file.
+        need_token = access_token is None
+        settings = get_settings(require_token=need_token)
+
         self.access_token = access_token or settings.webex_access_token
-        self.base_url = base_url or settings.webex_base_url
+        if not self.access_token:
+            raise ValueError(
+                "A Webex access token is required. Pass access_token=... or set "
+                "WEBEX_ACCESS_TOKEN in the environment or a .env file."
+            )
+
+        self.base_url = (base_url or settings.webex_base_url).rstrip("/")
+        self.analytics_base_url = settings.webex_analytics_base_url.rstrip("/")
+        self.timeout = timeout if timeout is not None else settings.webex_request_timeout
+        self.max_retries = (
+            max_retries if max_retries is not None else settings.webex_max_retries
+        )
+        self.retry_backoff = (
+            retry_backoff if retry_backoff is not None else settings.webex_retry_backoff
+        )
+        self._max_connections = settings.webex_max_connections
+
         self.headers = {
             "Authorization": f"Bearer {self.access_token}",
             "Content-Type": "application/json",
         }
+
+        self._client: Optional[httpx.AsyncClient] = None
+
+    # ------------------------------------------------------------------ #
+    # Connection lifecycle
+    # ------------------------------------------------------------------ #
+    def _get_http_client(self) -> httpx.AsyncClient:
+        """Return the shared httpx client, creating it on first use."""
+        if self._client is None or self._client.is_closed:
+            limits = httpx.Limits(
+                max_connections=self._max_connections,
+                max_keepalive_connections=self._max_connections,
+            )
+            self._client = httpx.AsyncClient(
+                timeout=self.timeout,
+                limits=limits,
+                headers=self.headers,
+            )
+        return self._client
+
+    async def aclose(self) -> None:
+        """Close the underlying HTTP connection pool."""
+        if self._client is not None and not self._client.is_closed:
+            await self._client.aclose()
+        self._client = None
+
+    async def __aenter__(self) -> "WebexClient":
+        return self
+
+    async def __aexit__(self, *exc_info) -> None:
+        await self.aclose()
+
+    # ------------------------------------------------------------------ #
+    # Core request helper
+    # ------------------------------------------------------------------ #
+    @staticmethod
+    def _retry_after_seconds(response: httpx.Response) -> Optional[float]:
+        """Parse a ``Retry-After`` header (seconds form) if present."""
+        value = response.headers.get("Retry-After")
+        if not value:
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
 
     async def _request(
         self,
@@ -23,69 +130,190 @@ class WebexClient:
         endpoint: str,
         params: Optional[Dict[str, Any]] = None,
         json_data: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
-        """Make an HTTP request to the Webex API"""
-        url = f"{self.base_url}{endpoint}"
+        *,
+        base_url: Optional[str] = None,
+    ) -> Any:
+        """Make an HTTP request to the Webex API with retries and backoff.
 
-        async with httpx.AsyncClient() as client:
+        Retries transient failures (429/5xx and network errors) up to
+        ``self.max_retries`` times using exponential backoff with jitter,
+        honouring a ``Retry-After`` header when the server sends one.
+
+        ``base_url`` overrides the default host for a single call (used for the
+        analytics/CDR endpoints) without mutating shared client state, which
+        keeps concurrent requests safe.
+        """
+        root = (base_url or self.base_url).rstrip("/")
+        url = f"{root}{endpoint}"
+        client = self._get_http_client()
+
+        attempt = 0
+        last_exc: Optional[Exception] = None
+
+        while attempt <= self.max_retries:
             try:
                 response = await client.request(
                     method=method,
                     url=url,
-                    headers=self.headers,
                     params=params,
                     json=json_data,
-                    timeout=30.0,
                 )
                 response.raise_for_status()
-                return response.json()
-            except httpx.HTTPStatusError as e:
-                # Provide detailed error information
-                error_msg = f"HTTP {e.response.status_code} error for {method} {endpoint}"
-                
-                # Try to get full error details from response
+
+                if response.status_code == 204 or not response.content:
+                    return {}
                 try:
-                    error_body = e.response.json()
-                    # Include full error body for debugging
-                    full_error = str(error_body)
-                    if "message" in error_body:
-                        error_msg += f": {error_body['message']}"
-                    elif "errors" in error_body:
-                        error_msg += f": {error_body['errors']}"
-                    elif "error" in error_body:
-                        error_msg += f": {error_body['error']}"
-                    elif "description" in error_body:
-                        error_msg += f": {error_body['description']}"
-                    else:
-                        # Include full error body if no standard fields found
-                        error_msg += f": {full_error[:500]}"
-                except:
-                    error_msg += f": {e.response.text[:500]}"
-                
-                # For 400 errors, include the actual request URL and params for debugging
-                if e.response.status_code == 400:
-                    import urllib.parse
-                    if params:
-                        query_string = urllib.parse.urlencode(params)
-                        error_msg += f"\n   Request URL: {url}?{query_string}"
-                    else:
-                        error_msg += f"\n   Request URL: {url}"
-                
-                # Provide helpful context for common errors
-                if e.response.status_code == 400:
-                    error_msg += " (Bad Request - check parameter formats, especially date/time formats)"
-                elif e.response.status_code == 401:
-                    error_msg += " (Authentication failed - check your access token)"
-                elif e.response.status_code == 403:
-                    error_msg += " (Permission denied - ensure you have admin access and required scopes)"
-                elif e.response.status_code == 404:
-                    error_msg += f" (Endpoint not found - {endpoint} may not exist or be available for your organization)"
-                elif e.response.status_code == 429:
-                    error_msg += " (Rate limit exceeded - wait before retrying)"
-                
-                raise Exception(error_msg) from e
+                    return response.json()
+                except ValueError:
+                    # Non-JSON success body (rare) — return raw text.
+                    return {"raw": response.text}
+
+            except httpx.HTTPStatusError as e:
+                status = e.response.status_code
+                if status in _RETRYABLE_STATUS and attempt < self.max_retries:
+                    delay = self._retry_after_seconds(e.response)
+                    if delay is None:
+                        delay = self.retry_backoff * (2 ** attempt) + random.uniform(
+                            0, self.retry_backoff
+                        )
+                    logger.warning(
+                        "Webex %s %s -> HTTP %s; retrying in %.2fs (attempt %d/%d)",
+                        method, endpoint, status, delay, attempt + 1, self.max_retries,
+                    )
+                    await asyncio.sleep(delay)
+                    attempt += 1
+                    last_exc = e
+                    continue
+                raise self._build_status_error(e, method, endpoint, url, params)
+
             except httpx.RequestError as e:
-                raise Exception(f"Request failed for {method} {endpoint}: {str(e)}") from e
+                # Network / timeout errors are transient — retry.
+                if attempt < self.max_retries:
+                    delay = self.retry_backoff * (2 ** attempt) + random.uniform(
+                        0, self.retry_backoff
+                    )
+                    logger.warning(
+                        "Webex %s %s network error (%s); retrying in %.2fs (attempt %d/%d)",
+                        method, endpoint, type(e).__name__, delay,
+                        attempt + 1, self.max_retries,
+                    )
+                    await asyncio.sleep(delay)
+                    attempt += 1
+                    last_exc = e
+                    continue
+                raise WebexApiError(
+                    f"Request failed for {method} {endpoint} after "
+                    f"{self.max_retries + 1} attempts: {e}"
+                ) from e
+
+        # Loop exhausted on a retryable status error.
+        if isinstance(last_exc, httpx.HTTPStatusError):
+            raise self._build_status_error(last_exc, method, endpoint, url, params)
+        raise WebexApiError(
+            f"Request failed for {method} {endpoint}: {last_exc}"
+        )
+
+    @staticmethod
+    def _build_status_error(
+        e: httpx.HTTPStatusError,
+        method: str,
+        endpoint: str,
+        url: str,
+        params: Optional[Dict[str, Any]],
+    ) -> WebexApiError:
+        """Build a rich, actionable error from an HTTP status error."""
+        status = e.response.status_code
+        error_msg = f"HTTP {status} error for {method} {endpoint}"
+
+        try:
+            error_body = e.response.json()
+            full_error = str(error_body)
+            if isinstance(error_body, dict) and "message" in error_body:
+                error_msg += f": {error_body['message']}"
+            elif isinstance(error_body, dict) and "errors" in error_body:
+                error_msg += f": {error_body['errors']}"
+            elif isinstance(error_body, dict) and "error" in error_body:
+                error_msg += f": {error_body['error']}"
+            elif isinstance(error_body, dict) and "description" in error_body:
+                error_msg += f": {error_body['description']}"
+            else:
+                error_msg += f": {full_error[:500]}"
+        except ValueError:
+            error_msg += f": {e.response.text[:500]}"
+
+        if status == 400:
+            if params:
+                query_string = urllib.parse.urlencode(params)
+                error_msg += f"\n   Request URL: {url}?{query_string}"
+            else:
+                error_msg += f"\n   Request URL: {url}"
+            error_msg += " (Bad Request - check parameter formats, especially date/time formats)"
+        elif status == 401:
+            error_msg += " (Authentication failed - check your access token; personal tokens expire after 12 hours)"
+        elif status == 403:
+            error_msg += " (Permission denied - ensure you have admin access and required scopes)"
+        elif status == 404:
+            error_msg += f" (Endpoint not found - {endpoint} may not exist or be available for your organization)"
+        elif status == 429:
+            error_msg += " (Rate limit exceeded - automatic retries were exhausted)"
+
+        return WebexApiError(error_msg, status_code=status)
+
+    # ------------------------------------------------------------------ #
+    # Pagination helper
+    # ------------------------------------------------------------------ #
+    async def _get_items(
+        self,
+        endpoint: str,
+        params: Optional[Dict[str, Any]] = None,
+        *,
+        max_results: int = 100,
+        base_url: Optional[str] = None,
+        items_key: str = "items",
+    ) -> List[Dict[str, Any]]:
+        """GET a collection endpoint, transparently following pagination.
+
+        Webex caps each page at ~100 items and returns a ``Link`` header with a
+        ``rel="next"`` URL. This walks those links until ``max_results`` items
+        are collected (or the data is exhausted). Pass ``max_results=0`` to
+        fetch every available item.
+        """
+        params = dict(params or {})
+        unlimited = max_results in (0, None)
+        page_size = _WEBEX_PAGE_LIMIT if unlimited else min(max_results, _WEBEX_PAGE_LIMIT)
+        params["max"] = page_size
+
+        root = (base_url or self.base_url).rstrip("/")
+        url = f"{root}{endpoint}"
+        client = self._get_http_client()
+
+        collected: List[Dict[str, Any]] = []
+        next_url: Optional[str] = url
+        next_params: Optional[Dict[str, Any]] = params
+
+        while next_url:
+            # First hop uses _request (retries); subsequent hops use the
+            # absolute Link URL, which already encodes its params.
+            response = await client.request(
+                "GET", next_url, params=next_params, headers=self.headers
+            )
+            try:
+                response.raise_for_status()
+            except httpx.HTTPStatusError as e:
+                raise self._build_status_error(e, "GET", endpoint, next_url, next_params)
+
+            body = response.json() if response.content else {}
+            page_items = body.get(items_key, []) if isinstance(body, dict) else []
+            collected.extend(page_items)
+
+            if not unlimited and len(collected) >= max_results:
+                return collected[:max_results]
+
+            next_link = response.links.get("next")
+            next_url = next_link.get("url") if next_link else None
+            next_params = None  # absolute Link URLs carry their own query
+
+        return collected
 
     async def get_organization_info(self) -> Dict[str, Any]:
         """Get information about the organization"""
@@ -95,6 +323,59 @@ class WebexClient:
         """Get information about the authenticated user"""
         return await self._request("GET", "/people/me")
 
+    async def test_connection(self) -> Dict[str, Any]:
+        """Validate the access token and report connectivity status.
+
+        Returns a structured health-check result rather than raising, so it can
+        be surfaced as a friendly diagnostic. Confirms the token works, who it
+        belongs to, and whether organization-level (admin) access is available.
+        """
+        result: Dict[str, Any] = {
+            "ok": False,
+            "base_url": self.base_url,
+            "analytics_base_url": self.analytics_base_url,
+        }
+        try:
+            me = await self.get_my_info()
+            result["ok"] = True
+            result["authenticatedAs"] = {
+                "displayName": me.get("displayName"),
+                "emails": me.get("emails"),
+                "id": me.get("id"),
+                "orgId": me.get("orgId"),
+                "type": me.get("type"),
+            }
+        except WebexApiError as e:
+            result["error"] = str(e)
+            result["status_code"] = e.status_code
+            if e.status_code == 401:
+                result["hint"] = (
+                    "Token is invalid or expired. Personal access tokens expire "
+                    "after 12 hours; generate a new one or use a bot token."
+                )
+            return result
+        except Exception as e:  # network etc.
+            result["error"] = str(e)
+            return result
+
+        # Probe admin scope (non-fatal).
+        try:
+            orgs = await self.get_organization_info()
+            result["adminAccess"] = True
+            items = orgs.get("items") if isinstance(orgs, dict) else None
+            if items:
+                result["organization"] = {
+                    "id": items[0].get("id"),
+                    "displayName": items[0].get("displayName"),
+                }
+        except WebexApiError as e:
+            result["adminAccess"] = False
+            result["adminAccessNote"] = (
+                f"Organization-level access unavailable ({e.status_code}). "
+                "Admin/telephony tools may not work with this token."
+            )
+        return result
+
     async def list_locations(
         self, org_id: Optional[str] = None, max_results: int = 100
     ) -> List[Dict[str, Any]]:
@@ -103,8 +384,7 @@ class WebexClient:
         if org_id:
             params["orgId"] = org_id
 
-        response = await self._request("GET", "/locations", params=params)
-        return response.get("items", [])
+        return await self._get_items("/locations", params, max_results=max_results)
 
     async def get_location_details(self, location_id: str) -> Dict[str, Any]:
         """Get detailed information about a specific location"""
@@ -123,8 +403,7 @@ class WebexClient:
         if location_id:
             params["locationId"] = location_id
 
-        response = await self._request("GET", "/people", params=params)
-        return response.get("items", [])
+        return await self._get_items("/people", params, max_results=max_results)
 
     async def get_user_details(self, person_id: str) -> Dict[str, Any]:
         """Get detailed information about a specific user"""
@@ -157,8 +436,7 @@ class WebexClient:
         if location_id:
             params["locationId"] = location_id
 
-        response = await self._request("GET", "/telephony/config/queues", params=params)
-        return response.get("items", [])
+        return await self._get_items("/telephony/config/queues", params, max_results=max_results)
 
     async def get_call_queue_details(self, queue_id: str) -> Dict[str, Any]:
         """Get details about a specific call queue"""
@@ -172,8 +450,7 @@ class WebexClient:
         if location_id:
             params["locationId"] = location_id
 
-        response = await self._request("GET", "/telephony/config/autoAttendants", params=params)
-        return response.get("items", [])
+        return await self._get_items("/telephony/config/autoAttendants", params, max_results=max_results)
 
     async def get_auto_attendant_details(self, auto_attendant_id: str) -> Dict[str, Any]:
         """Get details about a specific auto attendant"""
@@ -229,8 +506,7 @@ class WebexClient:
         if org_id:
             params["orgId"] = org_id
 
-        response = await self._request("GET", "/licenses", params=params)
-        return response.get("items", [])
+        return await self._get_items("/licenses", params, max_results=max_results)
 
     async def get_license_details(self, license_id: str) -> Dict[str, Any]:
         """Get details about a specific license"""
@@ -277,8 +553,7 @@ class WebexClient:
         if location_id:
             params["locationId"] = location_id
 
-        response = await self._request("GET", "/devices", params=params)
-        return response.get("items", [])
+        return await self._get_items("/devices", params, max_results=max_results)
 
     async def get_device_details(self, device_id: str) -> Dict[str, Any]:
         """Get details about a specific device"""
@@ -302,8 +577,7 @@ class WebexClient:
         if number:
             params["number"] = number
 
-        response = await self._request("GET", "/telephony/config/numbers", params=params)
-        return response.get("items", [])
+        return await self._get_items("/telephony/config/numbers", params, max_results=max_results)
 
     async def get_phone_number_details(self, number_id: str) -> Dict[str, Any]:
         """Get details about a specific phone number"""
@@ -680,22 +954,21 @@ class WebexClient:
         # Base URL: https://analytics.webexapis.com/v1
         # Endpoint: /cdr_feed
         endpoint = "/cdr_feed"
-        analytics_base_url = "https://analytics.webexapis.com/v1"
-        
-        # Temporarily switch to analytics base URL
-        original_base = self.base_url
+        # The CDR feed lives on a different host. We pass it per-request rather
+        # than mutating self.base_url so concurrent calls stay isolated.
+        analytics_base_url = self.analytics_base_url
         last_error = None
-        
+
         try:
-            self.base_url = analytics_base_url
-            
             # Try different parameter variations
             response = None
             attempt_count = 0
             for param_set in param_variations:
                 attempt_count += 1
                 try:
-                    response = await self._request("GET", endpoint, params=param_set)
+                    response = await self._request(
+                        "GET", endpoint, params=param_set, base_url=analytics_base_url
+                    )
                     # If successful, break out of loop
                     break
                 except Exception as e:
@@ -821,9 +1094,6 @@ class WebexClient:
                     f"Error: {error_msg}. "
                     f"Ensure you have the 'Webex Calling Detailed Call History API access' role assigned."
                 )
-        finally:
-            # Always restore original base URL
-            self.base_url = original_base
 
     async def get_call_analytics(
         self,
@@ -914,8 +1184,7 @@ class WebexClient:
         if location_id:
             params["locationId"] = location_id
 
-        response = await self._request("GET", "/telephony/config/trunkGroups", params=params)
-        return response.get("items", [])
+        return await self._get_items("/telephony/config/trunkGroups", params, max_results=max_results)
 
     async def get_trunk_group_details(self, trunk_group_id: str) -> Dict[str, Any]:
         """Get details about a specific trunk group"""
@@ -929,8 +1198,7 @@ class WebexClient:
         if location_id:
             params["locationId"] = location_id
 
-        response = await self._request("GET", "/telephony/config/huntGroups", params=params)
-        return response.get("items", [])
+        return await self._get_items("/telephony/config/huntGroups", params, max_results=max_results)
 
     async def get_hunt_group_details(self, hunt_group_id: str) -> Dict[str, Any]:
         """Get details about a specific hunt group"""
@@ -944,8 +1212,7 @@ class WebexClient:
         if location_id:
             params["locationId"] = location_id
 
-        response = await self._request("GET", "/telephony/config/callPark", params=params)
-        return response.get("items", [])
+        return await self._get_items("/telephony/config/callPark", params, max_results=max_results)
 
     async def get_location_features(self, location_id: str) -> Dict[str, Any]:
         """Get available features for a location"""
@@ -1509,20 +1776,25 @@ class WebexClient:
         if person_id:
             params["personId"] = person_id
 
-        response = await self._request("GET", "/telephony/calls/recordings", params=params)
-        return response.get("items", [])
+        return await self._get_items("/telephony/calls/recordings", params, max_results=max_results)
 
     async def get_call_recording(self, recording_id: str) -> Dict[str, Any]:
         """Get details about a call recording"""
         return await self._request("GET", f"/telephony/calls/recordings/{recording_id}")
 
     async def download_call_recording(self, recording_id: str) -> bytes:
-        """Download a call recording"""
-        url = f"{self.base_url}/telephony/calls/recordings/{recording_id}/download"
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url, headers=self.headers, timeout=60.0)
+        """Download a call recording (returns raw bytes)."""
+        endpoint = f"/telephony/calls/recordings/{recording_id}/download"
+        url = f"{self.base_url}{endpoint}"
+        client = self._get_http_client()
+        try:
+            response = await client.get(url, headers=self.headers)
             response.raise_for_status()
             return response.content
+        except httpx.HTTPStatusError as e:
+            raise self._build_status_error(e, "GET", endpoint, url, None)
+        except httpx.RequestError as e:
+            raise WebexApiError(f"Failed to download recording {recording_id}: {e}") from e
 
     # ========== Enhanced Reporting & Analytics ==========
 
@@ -1896,8 +2168,7 @@ class WebexClient:
     ) -> List[Dict[str, Any]]:
         """List all webhooks"""
         params = {"max": max_results}
-        response = await self._request("GET", "/webhooks", params=params)
-        return response.get("items", [])
+        return await self._get_items("/webhooks", params, max_results=max_results)
 
     async def create_webhook(
         self,

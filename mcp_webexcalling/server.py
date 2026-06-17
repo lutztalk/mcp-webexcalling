@@ -1,6 +1,7 @@
 """MCP Server for Webex Calling"""
 
 import asyncio
+import logging
 import sys
 from typing import Any, Sequence, Optional
 from mcp.server import Server
@@ -11,21 +12,41 @@ from .webex_client import WebexClient
 from .config import get_settings, find_env_file
 
 
+logger = logging.getLogger("mcp_webexcalling")
+
+
+def _configure_logging() -> None:
+    """Send logs to stderr (stdout is reserved for the MCP protocol)."""
+    if logger.handlers:
+        return
+    try:
+        level_name = get_settings(require_token=False).webex_log_level.upper()
+    except Exception:
+        level_name = "INFO"
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+    )
+    logger.addHandler(handler)
+    logger.setLevel(getattr(logging, level_name, logging.INFO))
+
+
 # Initialize the MCP server
 server = Server("webex-calling")
 webex_client: Optional[WebexClient] = None
 
 
 def get_client() -> WebexClient:
-    """Get or create Webex client instance"""
+    """Get or create the Webex client instance.
+
+    Raises ``ValueError`` with an actionable message when no token is
+    configured; the caller turns that into a friendly tool response.
+    """
     global webex_client
     if webex_client is None:
+        # get_settings() raises ValueError when the token is missing, and
+        # WebexClient validates it too — both surface as ValueError here.
         settings = get_settings()
-        # Verify token is loaded
-        if not settings.webex_access_token:
-            raise ValueError(
-                "WEBEX_ACCESS_TOKEN not found. Please set it in .env file or environment variables."
-            )
         webex_client = WebexClient(
             access_token=settings.webex_access_token,
             base_url=settings.webex_base_url,
@@ -43,6 +64,17 @@ def reset_client():
 async def list_tools() -> list[Tool]:
     """List all available tools"""
     return [
+        Tool(
+            name="test_connection",
+            description="Verify the Webex access token works and report who it "
+            "authenticates as and whether admin/org access is available. Use "
+            "this first to diagnose configuration or permission problems.",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+                "required": [],
+            },
+        ),
         Tool(
             name="get_organization_info",
             description="Get information about your Webex organization",
@@ -1442,7 +1474,11 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> Sequence[TextConten
         )]
 
     try:
-        if name == "get_organization_info":
+        if name == "test_connection":
+            result = await client.test_connection()
+            return [TextContent(type="text", text=format_json(result))]
+
+        elif name == "get_organization_info":
             result = await client.get_organization_info()
             return [TextContent(type="text", text=format_json(result))]
 
@@ -2201,12 +2237,18 @@ def format_json(data: Any) -> str:
 
 async def main():
     """Main entry point for the MCP server"""
-    async with stdio_server() as (read_stream, write_stream):
-        await server.run(
-            read_stream,
-            write_stream,
-            server.create_initialization_options(),
-        )
+    _configure_logging()
+    logger.info("Starting Webex Calling MCP server")
+    try:
+        async with stdio_server() as (read_stream, write_stream):
+            await server.run(
+                read_stream,
+                write_stream,
+                server.create_initialization_options(),
+            )
+    finally:
+        if webex_client is not None:
+            await webex_client.aclose()
 
 
 if __name__ == "__main__":

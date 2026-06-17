@@ -24,7 +24,7 @@ This makes Webex Calling management accessible to anyone, regardless of technica
 
 ## What Can It Do?
 
-The MCP Webex Calling server provides **85+ tools** organized into the following categories:
+The MCP Webex Calling server provides **90+ tools** organized into the following categories:
 
 ### Data Retrieval
 - Query Webex Calling users, locations, and organizations
@@ -347,7 +347,14 @@ The workflow will automatically send notifications when code is pushed to `main`
 
 ## Available Tools
 
-The server provides **85+ MCP tools** organized by category. See the full list in the [What Can It Do?](#what-can-it-do) section above.
+The server provides **90+ MCP tools** organized by category. See the full list in the [What Can It Do?](#what-can-it-do) section above.
+
+### Diagnostics
+
+Run the **`test_connection`** tool first if anything seems off. It validates your
+access token, reports the authenticated identity, and indicates whether
+admin/organization access is available — turning cryptic 401/403 errors into a
+clear diagnosis.
 
 ## Example Usage
 
@@ -394,6 +401,38 @@ device = await client.create_device_by_mac(
     mac_address="AABBCCDDEEFF",
     model="Cisco 8841"
 )
+```
+
+## Reliability & Robustness
+
+This server is built to keep working under real-world conditions:
+
+- **Flexible configuration** — credentials and settings are read from
+  environment variables *or* a `.env` file, with environment variables taking
+  precedence. The `env` block in `claude_desktop_config.json` works exactly as
+  documented.
+- **Automatic retries** — transient failures (HTTP 429 rate limits, 5xx, and
+  network/timeout errors) are retried with exponential backoff and jitter, and
+  the server honors the `Retry-After` header. Configurable via
+  `WEBEX_MAX_RETRIES` / `WEBEX_RETRY_BACKOFF`.
+- **Connection pooling** — a single HTTP client is reused across all requests
+  instead of opening a new connection each time.
+- **Automatic pagination** — list operations transparently follow Webex `Link`
+  headers, so `max_results` above the API's per-page cap returns the full set
+  (use `max_results=0` for everything available).
+- **Concurrency-safe** — per-request base URLs (used for the analytics/CDR
+  host) never mutate shared client state, so parallel tool calls don't
+  interfere.
+- **Actionable errors** — API errors carry their HTTP status code and an
+  explanation; the `test_connection` tool diagnoses auth/permission problems.
+- **Structured logging** — diagnostics go to stderr (configurable with
+  `WEBEX_LOG_LEVEL`) and never corrupt the MCP stdio protocol on stdout.
+
+Run the test suite with:
+
+```bash
+pip install -e ".[dev]"
+pytest
 ```
 
 ## Contributing

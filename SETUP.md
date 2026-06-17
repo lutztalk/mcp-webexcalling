@@ -44,6 +44,24 @@ WEBEX_ACCESS_TOKEN=your_webex_access_token_here
 WEBEX_BASE_URL=https://webexapis.com/v1
 ```
 
+> **Tip:** A complete, annotated template lives in [`.env.example`](.env.example).
+> You can either use a `.env` file **or** set these as real environment
+> variables (for example in the `env` block of `claude_desktop_config.json`).
+> Environment variables take precedence over the `.env` file.
+
+#### Optional configuration
+
+These all have sensible defaults and can be set via the environment or `.env`:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `WEBEX_REQUEST_TIMEOUT` | `30` | Per-request timeout (seconds). |
+| `WEBEX_MAX_RETRIES` | `3` | Automatic retries for transient errors (429/5xx/network). Honors `Retry-After`. |
+| `WEBEX_RETRY_BACKOFF` | `0.5` | Base for exponential backoff (seconds). |
+| `WEBEX_MAX_CONNECTIONS` | `20` | Pooled HTTP connections (a single client is reused across requests). |
+| `WEBEX_ANALYTICS_BASE_URL` | `https://analytics.webexapis.com/v1` | Host for detailed call history (CDR) APIs. |
+| `WEBEX_LOG_LEVEL` | `INFO` | Log verbosity; logs are written to stderr. |
+
 ### 5. Get Webex Access Token
 
 #### Option A: Personal Access Token (Easiest)
@@ -159,6 +177,9 @@ If you see authentication errors:
    ```bash
    curl -H "Authorization: Bearer YOUR_TOKEN" https://webexapis.com/v1/people/me
    ```
+5. Or just ask your MCP client to run the **`test_connection`** tool — it
+   verifies the token, reports who it authenticates as, and tells you whether
+   admin/organization access is available.
 
 ### MCP Connection Issues
 
